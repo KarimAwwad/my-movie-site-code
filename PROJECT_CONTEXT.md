@@ -48,7 +48,7 @@ Phase 0.
 | Worker (optional, Cloudflare) | n/a | `ruin-stream/worker.js` |
 
 Windows host. Site root is hardcoded in `server.py` to
-`D:\my development work\\unfinished and finished development projects\\movie site`.
+`D:\my development work\unfinished and finished development projects\movie site`.
 
 ## Config files and where they live
 
