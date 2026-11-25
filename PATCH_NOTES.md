@@ -1,25 +1,25 @@
-# PATCH_NOTES — Phase 0
+# PATCH_NOTES — Phase 0 documentation revision r2
+
+Status: **AWAITING OPERATOR REVIEW**.
 
 ## Scope
 
-Documentation only. Zero source files touched. Zero runtime behaviour change.
+Documentation only. No application source files changed. No runtime behaviour
+changed.
 
-## Files added (all repository root)
+## Files updated
 
-| File | Purpose |
+| File | Change |
 |---|---|
-| `PROJECT_CONTEXT.md` | state, ports, config locations, ownership |
-| `ARCHITECTURE.md` | topology, data flow, security posture |
-| `DEVELOPMENT_RULES.md` | the phase loop and delivery rules |
-| `KNOWN_ISSUES.md` | 13 recorded issues, severity-ranked |
-| `TEST_RESULTS.md` | baseline + result template |
-| `CHANGELOG.md` | seeded history |
-| `DEVELOPMENT_ROADMAP.md` | ordered phases |
-| `PATCH_NOTES.md` | this file |
+| \`PROJECT_CONTEXT.md\` | Phase status, pre-Phase-0 baseline, configuration and security notes |
+| \`ARCHITECTURE.md\` | Subtitle state/accessor ownership and current adoption stages |
+| \`KNOWN_ISSUES.md\` | Corrected subtitle-offset description; separated historical/current adoption behavior; dead-code candidates; credential exposure |
+| \`TEST_RESULTS.md\` | Revision log and verified repository/documentation state |
+| \`CHANGELOG.md\` | Phase 0 review revision and status |
+| \`DEVELOPMENT_ROADMAP.md\` | Review status and revised sequencing |
+| \`PATCH_NOTES.md\` | This revision record and PowerShell verification/rollback steps |
 
-## Files changed
-
-None.
+\`DEVELOPMENT_RULES.md\` was not changed.
 
 ## Files deleted
 
@@ -27,48 +27,64 @@ None.
 
 ## Packaging
 
-From the repository root:
+From the repository root in PowerShell:
 
-    cd "path/to/my-movie-site-code"
-    powershell Compress-Archive -Path PROJECT_CONTEXT.md,ARCHITECTURE.md,DEVELOPMENT_RULES.md,KNOWN_ISSUES.md,TEST_RESULTS.md,CHANGELOG.md,DEVELOPMENT_ROADMAP.md,PATCH_NOTES.md -DestinationPath phase0-docs.zip
+    Compress-Archive -Path PROJECT_CONTEXT.md,ARCHITECTURE.md,DEVELOPMENT_RULES.md,KNOWN_ISSUES.md,TEST_RESULTS.md,CHANGELOG.md,DEVELOPMENT_ROADMAP.md,PATCH_NOTES.md -DestinationPath phase0-docs-r2.zip -Force
 
-Docs sit at the root, so no folder nesting is needed this phase.
+## Verification
 
-## Testing
+Run in PowerShell from the repository root:
 
-1. `ls` the root — eight files present, no `*.md` beyond `README.md` and these.
-2. Open each in a renderer — tables draw, no literal `|` escaping errors.
-3. `grep -rn "TODO" *.md` — only intentional ones.
-4. Confirm `git status` shows additions only:
+1. Confirm the documentation files exist:
 
-       git status --porcelain | grep -v '^??'   # expect empty
-       git status --porcelain | grep '^??'      # expect the eight files
+       Get-ChildItem -File -Filter *.md | Select-Object -ExpandProperty Name
 
-5. Spot-check three claims against source, e.g. `grep -n "0:a:0" "ruintv server/library.py"`
-   and `grep -n "getOffsetSec" "movie site/script.js"`.
+   Expect \`README.md\` plus the eight Phase 0 documentation files.
 
-## Verification gate
+2. Confirm only the seven documentation files listed above changed in the
+   Phase 0 r2 commit:
 
-Phase 0 is accepted when all five checks pass and the operator confirms the
-issue list is accurate and the roadmap order is acceptable.
+       git show --name-only --format="" HEAD
+
+   No application source files should appear.
+
+3. Confirm the subtitle accessor and implementation locations:
+
+       Select-String -Path "movie site\script.js" -Pattern "getOffsetSec"
+       Select-String -Path "movie site\player-ui.js" -Pattern "setSubOffset|subOffset|autoSync"
+
+4. Confirm the media remux mapping:
+
+       Select-String -Path "ruintv server\library.py" -Pattern "0:a:0"
+
+5. Confirm current adoption logic markers:
+
+       Select-String -Path "ruintv server\grab.py" -Pattern "def adoptable|MIN_SIZE_RATIO|0.35"
+
+6. Confirm the working tree is clean after the commit:
+
+       git status --short
+
+   Expect no output unless the operator has unrelated local changes.
+
+These checks validate documentation/source references only. They do not
+reproduce runtime bugs or certify browser playback.
 
 ## Rollback
 
-Docs only, nothing depends on them:
+This revision changes documentation only. To reverse the single documentation
+revision commit:
 
-    git rm PROJECT_CONTEXT.md ARCHITECTURE.md DEVELOPMENT_RULES.md KNOWN_ISSUES.md TEST_RESULTS.md CHANGELOG.md DEVELOPMENT_ROADMAP.md PATCH_NOTES.md
-    git commit -m "revert phase 0 docs"
+    git revert <phase-0-r2-commit-sha>
 
-Or discard before committing:
+Do not use a broad reset or force-push. If later commits depend on these files,
+review the revert before applying it.
 
-    rm PROJECT_CONTEXT.md ARCHITECTURE.md DEVELOPMENT_RULES.md KNOWN_ISSUES.md TEST_RESULTS.md CHANGELOG.md DEVELOPMENT_ROADMAP.md PATCH_NOTES.md
+## Known limitations
 
-## Known limitations of this phase
-
-- `player-ui.js`, `components.js`, `style.css`, `relay.py` internals, and the
-  HLS path in `library.py` were not read line by line. Claims about them are
-  marked as such or held back.
-- `watch.html` and `index.html` were retrieved base64-encoded only; both are
-  thin shells and nothing in the docs depends on their markup.
-- No issue has been reproduced. All 13 are read from source, and issue 1 also
-  from a recorded incident in `grab.py`'s own docstring.
+- The complete consumer set for \`window.ruinPlayer.getOffsetSec\` remains
+  unverified. No call site was found in the shared frontend JS files inspected.
+- \`components.js\`, \`style.css\`, the complete relay internals, and the HLS path
+  were not exhaustively audited during Phase 0.
+- The active LAN address has not been confirmed by the operator.
+- No application issue was reproduced during this documentation-only revision.
