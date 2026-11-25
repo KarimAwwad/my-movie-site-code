@@ -33,7 +33,7 @@ Evidence from `ruintv server/server.log` and `library.log`:
 ## Current documented state
 
 Seven core project documents plus `PATCH_NOTES.md` are maintained at the
-repository root. `KNOWN_ISSUES.md` records 13 issues, including one S1 issue
+repository root. `KNOWN_ISSUES.md` records 13 issues, including two S1 issues
 and one unverified candidate. No application runtime behaviour changed during
 Phase 0.
 
