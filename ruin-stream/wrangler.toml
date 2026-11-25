@@ -1,0 +1,14 @@
+name = "ruin-stream"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+workers_dev = true
+
+[observability]
+enabled = true
+
+[vars]
+ALLOWED_HOSTS = ""
+MIN_SECONDS = "480"
+# API Read Access Token (starts eyJ...). Same value as API_KEY in script.js.
+TMDB_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjOGIzNDQ0Zjc4NjEyNWRkMmI2OWE4OGQzNDIwMmRlNCIsIm5iZiI6MTc5NDA0ODY1MC40MzIsInN1YiI6IjZhZWYwMjhhM2EwMWMzMjIwZGU3MmZhZiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.HQkrZWc9b5HGeSfyMBmK-zlQ0mkiutYS4rCAAFdZfPQ"

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050505">
+  <meta name="robots" content="noindex">
+  <title>Offline | RUIN.TO</title>
+  <!-- Fully self-contained (no outside files), because it is shown precisely when nothing can be loaded. -->
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px;
+      background: radial-gradient(circle at 50% 35%, #2a0000 0%, #050505 65%); color: #fff; font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+    }
+    main { max-width: 480px; }
+    .logo { font-family: 'Cinzel Decorative', Georgia, serif; font-size: 2rem; letter-spacing: 4px; color: #da0000; text-shadow: 0 0 14px rgba(218,0,0,.5); margin: 0 0 28px; }
+    .icon { font-size: 3.4rem; line-height: 1; margin-bottom: 14px; filter: drop-shadow(0 0 18px rgba(218,0,0,.6)); }
+    h1 { font-family: 'Cinzel Decorative', Georgia, serif; font-size: 1.6rem; margin: 0 0 12px; }
+    p { color: #bbb; line-height: 1.6; margin: 0 0 28px; }
+    button { font: 700 1rem 'Montserrat', 'Segoe UI', Arial, sans-serif; padding: 13px 32px; border-radius: 999px; border: 1px solid #da0000; background: #da0000; color: #fff; cursor: pointer; }
+    button:hover { box-shadow: 0 0 20px rgba(218,0,0,.6); }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="logo">RUIN.TO</p>
+    <div class="icon" aria-hidden="true">🕯️</div>
+    <h1>The Abyss is silent</h1>
+    <p>You seem to be offline. Check your connection, then try again. Your history and lists are safe and will be waiting.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>

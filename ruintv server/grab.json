@@ -1,0 +1,23 @@
+{
+  "host": "127.0.0.1",
+  "bind": "0.0.0.0",
+  "port": 8789,
+  "tmdb_key": "c8b3444f786125dd2b69a88d34202de4",
+  "library_root": "D:\\movies\\library",
+  "staging_root": "D:\\movies\\staging",
+  "client": "fdm",
+  "fdm_path": "C:\\Program Files\\Softdeluxe\\Free Download Manager\\fdm.exe",
+  "watch_roots": [],
+  "watch_depth": 3,
+  "library_scan_url": "http://127.0.0.1:8788/scan",
+  "ytdlp_path": "D:\\my development work\\development tools\\yt-dlp\\yt-dlp.exe",
+  "ffmpeg_dir": "D:\\my development work\\development tools\\ffmpeg\\bin",
+  "allow_youtube": true,
+  "max_quality": "1080p",
+  "min_seeds": 3,
+  "min_free_gb": 20,
+  "auto_scan": true,
+  "min_file_mb": 20,
+  "allow_provider": true,
+  "stale_handoff_min": 120
+}

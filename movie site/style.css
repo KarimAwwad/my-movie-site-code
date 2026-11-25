@@ -1,0 +1,4684 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Montserrat:wght@400;600;800&family=UnifrakturCook:wght@700&display=swap');
+
+/* Links used as buttons/menu items should not look like blue underlined links */
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+:root {
+    --blood-red: #da0000;
+    --dark-void: #050505;
+    --obsidian: rgba(15, 15, 15, 0.85);
+    --text-main: #e0e0e0;
+}
+
+body {
+    margin: 0;
+    overflow-x: hidden;
+    font-family: 'Montserrat', sans-serif;
+    color: var(--text-main);
+    background-color: var(--dark-void);
+}
+
+h1, h2, h3 {
+    font-family: 'Cinzel Decorative', serif;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--dark-void);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--blood-red);
+    border-radius: 4px;
+}
+
+#particles-js {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    top: 0;
+    left: 0;
+}
+
+/* TOP BAR & MEGA MENU */
+.top-bar {
+    width: 100%;
+    height: 80px;
+    background: var(--obsidian);
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid rgba(218, 0, 0, 0.2);
+    position: fixed;
+    top: 0;
+    z-index: 600; /* must be higher than .filter-toolbar (500), or the Genres menu hides behind it */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    box-sizing: border-box;
+}
+
+.logo {
+    color: var(--blood-red);
+    font-size: 2.2em;
+    font-family: 'Cinzel Decorative';
+    letter-spacing: 4px;
+    cursor: pointer;
+    text-shadow: 0 0 10px rgba(218, 0, 0, 0.5);
+}
+
+.nav-links {
+    display: flex;
+    gap: 30px;
+}
+
+.nav-item {
+    font-weight: 800;
+    cursor: pointer;
+    position: relative;
+    padding: 10px 0;
+    transition: color 0.3s;
+}
+
+.nav-item:hover {
+    color: var(--blood-red);
+}
+
+.mega-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: -50px;
+    background: #0a0a0a;
+    padding: 20px;
+    border: 1px solid var(--blood-red);
+    border-radius: 4px;
+    gap: 20px;
+}
+
+.dropdown:hover .mega-menu {
+    display: flex;
+}
+
+.menu-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.menu-col a {
+    cursor: pointer;
+    padding: 5px 10px;
+    transition: color 0.2s;
+    white-space: nowrap;
+}
+
+.menu-col a:hover {
+    color: var(--blood-red);
+    background: rgba(218, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+.right-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+#search-input {
+    width: 220px;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #333;
+    background: #111;
+    color: white;
+    outline: none;
+    font-family: 'Montserrat';
+}
+
+#search-input:focus {
+    border-color: var(--blood-red);
+}
+
+/* --- MOVIISH STYLE FILTER TOOLBAR & POPOVERS --- */
+.filter-toolbar {
+    margin-top: 80px;
+    background: #0a0a0a;
+    padding: 15px 40px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 14px 30px;
+    border-bottom: 1px solid #222;
+    align-items: center;
+    position: relative;
+    z-index: 500;
+}
+
+/* "#category-title" (an id) beats a plain class, so the selector starts from the toolbar to win over the 2.5em rule */
+.filter-toolbar #category-title {
+    margin: 0;
+    font-size: 1.5em;
+    line-height: 1.2;
+    padding-bottom: 4px;
+    white-space: nowrap;
+}
+
+.toolbar-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px 28px;
+}
+
+.toolbar-sort {
+    padding-left: 22px;
+    border-left: 1px solid #2a2a2a;
+}
+
+.filter-wrapper {
+    position: relative;
+}
+
+.filter-trigger {
+    position: relative; /* anchor for the floating count badge */
+    color: #aaa;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95em;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    user-select: none;
+}
+
+.filter-trigger:hover {
+    color: #fff;
+}
+
+.filter-trigger.has-value {
+    color: #fff;
+}
+
+/* The little number on a switched-on filter, e.g. Genre [2].
+   It is positioned ABSOLUTELY (it floats over the corner of the label) so it takes up no room in the row.
+   If it sat in the normal flow, every selected filter would make the toolbar wider, and at ~1280px
+   that pushes the whole bar onto a new line below the title. */
+.filter-badge {
+    position: absolute;
+    top: -11px;
+    right: -4px;
+    background: var(--blood-red);
+    color: #fff;
+    border-radius: 9px;
+    font-size: 0.65em;
+    line-height: 1;
+    min-width: 16px;
+    padding: 3px 5px;
+    text-align: center;
+    pointer-events: none;
+}
+
+.filter-badge:empty {
+    display: none;
+}
+
+.eq-icon {
+    color: #555;
+    font-size: 1.2em;
+    font-weight: normal;
+}
+
+/* FIXED POPOVER STYLING */
+.filter-popover {
+    position: absolute;
+    top: calc(100% + 15px);
+    left: 0;
+    background: #12151d;
+    border: 1px solid #2a2e3d;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    display: none;
+    min-width: 240px;
+}
+
+.filter-popover.active {
+    display: block !important;
+}
+
+.large-popover {
+    width: 560px;
+    max-width: calc(100vw - 40px);
+}
+
+/* opens towards the left, so popovers near the right edge never run off the screen */
+.filter-popover.align-right {
+    left: auto;
+    right: 0;
+}
+
+/* Pill Grid: pills keep their own width and wrap onto new lines */
+.pill-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.filter-pill {
+    background: #1a1e29;
+    border: 1px solid #2a2e3d;
+    color: #aaa;
+    padding: 8px 16px;
+    border-radius: 20px;
+    text-align: center;
+    white-space: nowrap;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 600;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.filter-pill:hover {
+    background: #252a3a;
+    color: #fff;
+}
+
+/* "Coming soon" pills: visible but cannot be used */
+.filter-pill.disabled,
+.filter-pill.disabled:hover {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #1a1e29;
+    color: #aaa;
+}
+
+.filter-pill.active {
+    background: #1cb569;
+    border-color: #1cb569;
+    color: #fff;
+}
+
+/* Vertical Sort List Menu */
+.sort-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sort-item {
+    padding: 12px 16px;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 600;
+    transition: 0.2s;
+    border-radius: 6px;
+}
+
+.sort-item:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sort-item.active {
+    color: #1cb569;
+    background: rgba(28, 181, 105, 0.15);
+}
+
+.apply-btn {
+    width: 100%;
+    padding: 12px;
+    background: #1cb569;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Montserrat';
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.apply-btn:hover {
+    background: #159a57;
+}
+
+.clear-btn {
+    color: var(--blood-red);
+    font-size: 0.9em;
+}
+
+.clear-btn:hover {
+    color: #ff4500;
+}
+
+/* AUTH & MODALS */
+.auth-btn {
+    padding: 10px 20px;
+    background: var(--blood-red);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Cinzel Decorative';
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.auth-btn:hover {
+    background: #ff0000;
+    box-shadow: 0 0 10px rgba(218, 0, 0, 0.5);
+}
+
+#nav-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--blood-red);
+    cursor: pointer;
+    object-fit: cover;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: #0a0a0a;
+    padding: 30px;
+    border: 1px solid var(--blood-red);
+    border-radius: 8px;
+    width: 400px;
+    position: relative;
+    box-shadow: 0 0 30px rgba(218, 0, 0, 0.3);
+}
+
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    cursor: pointer;
+    color: #777;
+    font-size: 1.2em;
+}
+
+.close-modal:hover {
+    color: var(--blood-red);
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 12px;
+    margin: 15px 0;
+    background: #111;
+    border: 1px solid #333;
+    color: white;
+    box-sizing: border-box;
+    border-radius: 4px;
+    font-family: 'Montserrat';
+}
+
+/* MAIN LAYOUT */
+.content {
+    margin-top: 100px;
+    padding: 0 40px 40px 40px;
+}
+
+.section-title {
+    font-size: 1.5em;
+    margin: 30px 0 15px 0;
+    color: #fff;
+    border-left: 4px solid var(--blood-red);
+    padding-left: 10px;
+}
+
+#category-title {
+    font-size: 2.5em;
+    border-bottom: 2px solid var(--blood-red);
+    padding-bottom: 10px;
+    display: inline-block;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* CAROUSELS */
+.carousel-container {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.movie-row {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding-bottom: 15px;
+    scroll-snap-type: x mandatory;
+}
+
+.movie-row::-webkit-scrollbar {
+    height: 6px;
+}
+
+/* MOVIE CARDS & TAGS */
+.movie-card {
+    flex: 0 0 200px;
+    background: #0a0a0a;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    border: 1px solid #222;
+    scroll-snap-align: start;
+}
+
+.movie-card img {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+    border-radius: 4px 4px 0 0;
+    filter: grayscale(15%);
+    transition: filter 0.3s;
+}
+
+.movie-card h4 {
+    margin: 10px;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Montserrat';
+    text-transform: none;
+    text-align: center;
+}
+
+.movie-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--blood-red);
+    box-shadow: 0 10px 20px rgba(218, 0, 0, 0.3);
+}
+
+.movie-card:hover img {
+    filter: grayscale(0%);
+}
+
+.meta-tag {
+    position: absolute;
+    z-index: 3; /* above the poster, or the rating hides behind the picture */
+    top: 10px;
+    padding: 4px 8px;
+    font-size: 0.75em;
+    font-weight: bold;
+    border-radius: 4px;
+    backdrop-filter: blur(5px);
+}
+
+.cam-tag {
+    left: 10px;
+    background: rgba(218, 0, 0, 0.8);
+    color: white;
+}
+
+.rating-tag {
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: gold;
+    border: 1px solid gold;
+}
+
+/* HERO BANNER */
+.hero-showcase {
+    width: 100%;
+    height: 600px;
+    border-radius: 12px;
+    background-size: cover;
+    background-position: center top;
+    position: relative;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: flex-end;
+    border: 1px solid #222;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(5, 5, 5, 1) 10%, rgba(5, 5, 5, 0) 60%), linear-gradient(to top, rgba(5, 5, 5, 1) 5%, rgba(5, 5, 5, 0) 40%);
+    border-radius: 12px;
+}
+
+.hero-content {
+    z-index: 2;
+    padding: 50px;
+    max-width: 700px;
+}
+
+.hero-content h1 {
+    font-size: clamp(2.2rem, 4.2vw, 3.8rem);
+    line-height: 1.05;
+    margin-bottom: 14px;
+    text-shadow: 2px 2px 10px #000;
+}
+
+.hero-meta {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 14px;
+    position: relative;
+    flex-wrap: wrap;
+}
+
+.hero-meta .meta-tag {
+    position: static;
+}
+
+.hero-content p {
+    font-size: 1.1em;
+    line-height: 1.6;
+    text-shadow: 1px 1px 5px #000;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 25px;
+}
+
+.play-btn {
+    padding: 12px 35px;
+    font-size: 1.1em;
+    font-family: 'Cinzel Decorative';
+    background: var(--blood-red);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+    font-weight: bold;
+}
+
+.play-btn:hover {
+    background: #ff0000;
+    box-shadow: 0 0 20px rgba(218, 0, 0, 0.6);
+    transform: scale(1.05);
+}
+
+/* GRID VIEW & NETWORKS & PLAYER */
+.movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.movie-grid .movie-card {
+    flex: auto;
+}
+
+.dj-board {
+    background: #111;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border: 1px solid #333;
+}
+
+#server-switcher {
+    padding: 8px 12px;
+    background: #050505;
+    color: var(--blood-red);
+    border: 1px solid var(--blood-red);
+    outline: none;
+    font-weight: bold;
+}
+
+.close-player {
+    background: transparent;
+    color: #777;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: 'Montserrat';
+}
+
+.close-player:hover {
+    color: white;
+}
+
+iframe {
+    width: 100%;
+    height: 650px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #000;
+    margin-bottom: 40px;
+}
+
+/* PROFILE & DASHBOARD STYLES */
+#user-profile {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.profile-menu {
+    position: absolute;
+    top: 120%;
+    right: 0;
+    min-width: 200px;
+    background: #0a0a0a;
+    border: 1px solid #222;
+    border-radius: 8px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+}
+
+#user-profile:hover .profile-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.profile-menu a {
+    padding: 12px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9em;
+    transition: 0.2s;
+    color: #ccc;
+}
+
+.profile-menu a:hover {
+    background: rgba(218, 0, 0, 0.1);
+    color: var(--blood-red);
+}
+
+.dash-header {
+    margin-bottom: 30px;
+}
+
+.dash-banner {
+    width: 100%;
+    height: 350px;
+    background-color: #0b0b0b;
+    /* the default banner: a dark gradient with a faint red glow, until the user picks their own */
+    background-image: radial-gradient(ellipse at 18% 0%, rgba(218, 0, 0, 0.30), transparent 60%),
+    linear-gradient(135deg, #0a0a0a 0%, #1a0606 55%, #050505 100%);
+    background-size: cover;
+    background-position: center 20%;
+    border-radius: 12px;
+    position: relative;
+    border: 1px solid #222;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.dash-banner::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 150px;
+    background: linear-gradient(to top, var(--dark-void), transparent);
+    pointer-events: none;
+}
+
+.dash-user-info {
+    display: flex;
+    align-items: flex-end;
+    padding: 0 40px;
+    margin-top: -60px;
+    position: relative;
+    z-index: 10;
+    gap: 25px;
+}
+
+.dash-avatar-wrapper {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    position: relative;
+}
+
+#dash-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 6px solid var(--dark-void);
+    object-fit: cover;
+    background: #111;
+    box-sizing: border-box;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.8);
+}
+
+.dash-text-info h1 {
+    font-family: 'Montserrat';
+    font-size: 2em;
+    margin: 0 0 5px 0;
+    text-transform: none;
+    color: #fff;
+}
+
+.dash-text-info p {
+    margin: 0;
+    color: #888;
+    font-size: 1.1em;
+}
+
+.edit-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: 0.3s;
+    font-weight: bold;
+    font-size: 1.2em;
+    font-family: 'Montserrat';
+    cursor: pointer;
+}
+
+.avatar-edit-overlay {
+    border-radius: 50%;
+    border: 6px solid transparent;
+    box-sizing: border-box;
+}
+
+.dash-banner:hover .edit-overlay, .dash-avatar-wrapper:hover .edit-overlay,
+.edit-overlay:focus-visible {
+    opacity: 1;
+}
+
+.edit-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+}
+
+.edit-label b {
+    font-size: 0.7em;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.cam-icon {
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
+
+/* A banner with no picture yet always shows its "Add a banner" prompt so people can find it. */
+.dash-banner.is-empty .edit-overlay {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.dash-banner.is-empty .edit-overlay:hover {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+/* Phones and tablets have no hover, so the camera is always visible there. */
+@media (hover: none) {
+    .edit-overlay {
+        opacity: 1;
+        background: rgba(0, 0, 0, 0.35);
+    }
+
+    .avatar-edit-overlay .edit-label b {
+        display: none;
+    }
+
+    /* the circle is small: icon only */
+}
+
+.dash-tabs {
+    display: flex;
+    gap: 30px;
+    padding-left: 40px;
+    margin-top: 30px;
+    border-bottom: 1px solid #222;
+}
+
+.dash-tab {
+    padding: 15px 0;
+    color: #888;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+    position: relative;
+    font-size: 1.05em;
+}
+
+.dash-tab:hover {
+    color: #fff;
+}
+
+.dash-tab.active {
+    color: #fff;
+}
+
+.dash-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: #1cb569;
+}
+
+.settings-form-container {
+    max-width: 800px;
+    padding: 20px 40px;
+}
+
+.input-group {
+    margin-bottom: 25px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 10px;
+    color: #aaa;
+    font-weight: 600;
+    font-size: 0.95em;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 18px;
+    background: #12151d;
+    border: 1px solid #1f232e;
+    color: white;
+    border-radius: 8px;
+    font-family: 'Montserrat';
+    box-sizing: border-box;
+    transition: 0.3s;
+    font-size: 1em;
+}
+
+.input-group input:focus {
+    border-color: var(--blood-red);
+    outline: none;
+}
+
+/* --- ADDED: filter + feedback helpers --- */
+/* Horror/Thriller have no TV equivalent, so hide them while "TV Show" is selected */
+.tv-mode .movie-only {
+    display: none;
+}
+
+/* a few genres exist only for TV (Kids, News, Reality...): hidden until "TV Show" is selected */
+.tv-only {
+    display: none;
+}
+
+.tv-mode .tv-only {
+    display: block;
+}
+
+/* Message that spans the whole movie grid (errors / "no results") */
+.grid-message {
+    grid-column: 1 / -1;
+    color: #888;
+    font-weight: bold;
+}
+
+/* Small pop-up notice at the bottom of the screen */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0a0a0a;
+    color: #fff;
+    border: 1px solid var(--blood-red);
+    border-radius: 8px;
+    padding: 14px 24px;
+    font-weight: 600;
+    z-index: 2000;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+/* =====================================================================
+   ACCOUNT DROPDOWN (logged-out header, like movish's "Account" menu)
+   ===================================================================== */
+.account-wrapper {
+    position: relative;
+}
+
+.account-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: transparent;
+    color: #fff;
+    border: 1px solid var(--blood-red);
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.account-btn:hover {
+    background: var(--blood-red);
+    box-shadow: 0 0 14px rgba(218, 0, 0, 0.5);
+}
+
+.account-btn .chev {
+    font-size: 0.8em;
+    transition: transform 0.2s;
+}
+
+.account-wrapper:has(.account-menu.open) .chev {
+    transform: rotate(180deg);
+}
+
+.account-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 14px);
+    right: 0;
+    min-width: 270px;
+    background: #0a0a0a;
+    border: 1px solid #2a1212;
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+    overflow: hidden;
+    z-index: 300;
+}
+
+.account-menu.open {
+    display: block;
+}
+
+.account-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 22px;
+    transition: background 0.2s;
+}
+
+.account-item + .account-item {
+    border-top: 1px solid #1c1c1c;
+}
+
+.account-item:hover {
+    background: rgba(218, 0, 0, 0.12);
+}
+
+.ai-icon {
+    font-size: 1.2em;
+}
+
+.ai-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ai-text b {
+    font-size: 0.95em;
+}
+
+.ai-text small {
+    color: #777;
+    font-size: 0.8em;
+}
+
+/* =====================================================================
+   LOGIN + REGISTER PAGES (Ruin artwork as the backdrop)
+   ===================================================================== */
+body[data-page="login"],
+body[data-page="register"] {
+    background: #050505 url('assets/ruin-banner-gray.jpg') center top / cover fixed no-repeat;
+}
+
+/* dark vignette over the art so the form stays readable (sits under the particles) */
+body[data-page="login"]::before,
+body[data-page="register"]::before {
+    content: '';
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    background: radial-gradient(ellipse at center, rgba(5, 5, 5, 0.45) 0%, rgba(5, 5, 5, 0.9) 78%);
+    z-index: -2;
+}
+
+.auth-wrap {
+    min-height: calc(100vh - 100px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 0 60px;
+    box-sizing: border-box;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 480px;
+    background: rgba(10, 10, 10, 0.84);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(218, 0, 0, 0.35);
+    border-radius: 14px;
+    padding: 38px 42px 34px;
+    box-sizing: border-box;
+    box-shadow: 0 0 60px rgba(218, 0, 0, 0.16), 0 30px 80px rgba(0, 0, 0, 0.8);
+}
+
+.auth-brand {
+    font-family: 'UnifrakturCook', 'Cinzel Decorative', serif;
+    color: var(--blood-red);
+    font-size: 3.2em;
+    line-height: 1;
+    text-align: center;
+    text-shadow: 0 0 22px rgba(218, 0, 0, 0.65);
+}
+
+.auth-card h1 {
+    text-align: center;
+    font-size: 1.5em;
+    margin: 14px 0 6px;
+    color: #fff;
+}
+
+.auth-tagline {
+    text-align: center;
+    color: #666;
+    letter-spacing: 3px;
+    font-size: 0.68em;
+    margin: 0 0 30px;
+}
+
+.auth-field {
+    margin-bottom: 20px;
+}
+
+.auth-field label {
+    display: block;
+    margin-bottom: 9px;
+    color: #bbb;
+    font-weight: 600;
+    font-size: 0.92em;
+}
+
+.auth-field input {
+    width: 100%;
+    padding: 15px 16px;
+    background: #101218;
+    border: 1px solid #23262f;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1em;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.auth-field input:focus {
+    outline: none;
+    border-color: var(--blood-red);
+    box-shadow: 0 0 0 3px rgba(218, 0, 0, 0.18);
+}
+
+.pw-wrap {
+    position: relative;
+}
+
+.pw-wrap input {
+    padding-right: 52px;
+}
+
+.pw-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #777;
+    font-size: 1.1em;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+.pw-toggle:hover,
+.pw-toggle.on {
+    color: #fff;
+}
+
+.field-hint {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 8px;
+    min-height: 1.2em;
+}
+
+.field-hint.ok {
+    color: #1cb569;
+}
+
+.field-hint.bad {
+    color: #ff5c5c;
+}
+
+.auth-msg {
+    min-height: 1.3em;
+    margin: 0 0 14px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.auth-msg.bad {
+    color: #ff5c5c;
+}
+
+.auth-msg.ok {
+    color: #1cb569;
+}
+
+.auth-submit {
+    width: 100%;
+    padding: 16px;
+    background: var(--blood-red);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 1.05em;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.auth-submit:hover:not(:disabled) {
+    background: #ff1a1a;
+    box-shadow: 0 0 24px rgba(218, 0, 0, 0.55);
+}
+
+.auth-submit:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.auth-switch {
+    text-align: center;
+    color: #777;
+    margin: 26px 0 0;
+    font-size: 0.95em;
+}
+
+.auth-switch a {
+    color: #fff;
+    font-weight: 700;
+}
+
+.auth-switch a:hover {
+    color: var(--blood-red);
+}
+
+.auth-quote {
+    text-align: center;
+    color: #4a4a4a;
+    font-style: italic;
+    font-size: 0.78em;
+    line-height: 1.7;
+    margin: 26px 0 0;
+}
+
+/* "check your inbox" panel */
+.auth-success {
+    text-align: center;
+}
+
+.auth-success-icon {
+    font-size: 3em;
+    color: var(--blood-red);
+    margin-bottom: 6px;
+}
+
+.auth-success h2 {
+    font-size: 1.3em;
+    margin-bottom: 12px;
+}
+
+.auth-success p {
+    color: #aaa;
+    line-height: 1.7;
+}
+
+.auth-success b {
+    color: #fff;
+    word-break: break-all;
+}
+
+.auth-secondary {
+    margin-top: 14px;
+    padding: 12px 26px;
+    background: transparent;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.auth-secondary:hover:not(:disabled) {
+    border-color: var(--blood-red);
+    color: var(--blood-red);
+}
+
+.auth-secondary:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.auth-secondary-link {
+    display: inline-block;
+    margin-top: 6px;
+    color: #888;
+    font-size: 0.9em;
+}
+
+.auth-secondary-link:hover {
+    color: #fff;
+}
+
+/* small helpers used on several pages */
+.dash-username {
+    color: var(--blood-red);
+    font-weight: 600;
+    margin-bottom: 4px !important;
+}
+
+.input-group .field-hint {
+    margin-top: 8px;
+}
+
+/* Quality has four pills (4K, HD, SD, CAM); give it enough width to keep them on one row */
+#popover-quality {
+    min-width: 330px;
+}
+
+/* =====================================================================
+   Poster buttons: heart (like), bookmark (watch later), cross (remove from history)
+   ===================================================================== */
+.movie-card .poster {
+    position: relative; /* the buttons are positioned against the picture */
+    line-height: 0;
+}
+
+.movie-card .poster img {
+    display: block; /* removes the small gap an inline image leaves underneath */
+}
+
+.card-actions {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    display: flex;
+    gap: 6px;
+}
+
+.card-btn,
+.card-remove {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    color: #ddd;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: opacity 0.2s, transform 0.15s, color 0.2s, background 0.2s;
+}
+
+.card-btn svg,
+.card-remove svg,
+.player-save-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: none; /* outline when off ... */
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.card-btn:hover,
+.card-remove:hover {
+    transform: scale(1.12);
+    background: rgba(0, 0, 0, 0.9);
+}
+
+/* ... and filled when on: the heart turns red, the bookmark turns gold */
+.card-btn-liked.active,
+.player-save-btn[data-list="liked"].active {
+    color: #ff2a2a;
+}
+
+.card-btn-watchlist.active,
+.player-save-btn[data-list="watchlist"].active {
+    color: #e8b84a;
+}
+
+.card-btn.active svg,
+.player-save-btn.active svg {
+    fill: currentColor;
+}
+
+/* Buttons appear when you hover a card, but a button that is switched ON always stays visible.
+   Touch screens have no hover, so there they are always visible. */
+.card-btn,
+.card-remove {
+    opacity: 0;
+}
+
+.movie-card:hover .card-btn,
+.movie-card:hover .card-remove,
+.card-btn.active,
+.card-btn:focus-visible,
+.card-remove:focus-visible {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .card-btn,
+    .card-remove {
+        opacity: 1;
+    }
+}
+
+.card-remove {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+}
+
+.card-remove:hover {
+    color: #fff;
+    border-color: var(--blood-red);
+    background: var(--blood-red);
+}
+
+/* =====================================================================
+   Player bar buttons
+   ===================================================================== */
+.player-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.player-save-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: #050505;
+    color: #bbb;
+    border: 1px solid #333;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Montserrat';
+    font-weight: 600;
+    font-size: 0.85em;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.player-save-btn:hover {
+    border-color: #777;
+    color: #fff;
+}
+
+.player-save-btn.active {
+    border-color: currentColor;
+}
+
+/* =====================================================================
+   Profile panes: header row with "Clear all history", empty notes, toast button
+   ===================================================================== */
+.pane-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+#clear-history-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.confirm-text {
+    color: #ccc;
+    font-size: 0.9em;
+}
+
+.pane-action-btn {
+    padding: 8px 16px;
+    background: transparent;
+    color: #bbb;
+    border: 1px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Montserrat';
+    font-weight: 600;
+    font-size: 0.85em;
+    transition: all 0.2s;
+}
+
+.pane-action-btn:hover {
+    color: #fff;
+    border-color: #888;
+}
+
+.pane-action-btn.danger {
+    background: var(--blood-red);
+    border-color: var(--blood-red);
+    color: #fff;
+}
+
+.saved-grid {
+    margin-top: 20px;
+}
+
+.empty-note {
+    color: #888;
+    margin-top: 20px;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.toast-action {
+    background: transparent;
+    border: none;
+    color: var(--blood-red);
+    font-weight: 700;
+    font-family: 'Montserrat';
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.toast-action:hover {
+    color: #fff;
+}
+
+/* Shown instead of a network logo when its picture cannot be loaded (see onerror in components.js) */
+.network-fallback {
+    margin: auto;
+    color: #777;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 1.5em;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+
+/* =====================================================================
+   Hero (rating ring, chips, buttons, poster, thumbnail strip)
+   ===================================================================== */
+.hero-kicker {
+    display: inline-block;
+    margin-bottom: 10px;
+    font-family: 'Montserrat';
+    font-size: 0.75em;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ddd;
+}
+
+.hero-kicker::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--blood-red);
+    box-shadow: 0 0 8px var(--blood-red);
+}
+
+.rating-ring {
+    position: relative;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: conic-gradient(var(--blood-red) calc(var(--pct) * 1%), #333 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.rating-ring::before {
+    content: '';
+    position: absolute;
+    top: 4px; right: 4px; bottom: 4px; left: 4px;
+    border-radius: 50%;
+    background: #070707;
+}
+
+.rating-ring b {
+    position: relative;
+    font-family: 'Montserrat';
+    font-size: 0.85em;
+}
+
+.hero-facts {
+    font-family: 'Montserrat';
+    font-size: 0.9em;
+    color: #ccc;
+    white-space: pre;
+}
+
+.hero-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.hero-genres:empty {
+    display: none;
+}
+
+.chip {
+    padding: 5px 14px;
+    border: 1px solid #555;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.45);
+    font-family: 'Montserrat';
+    font-size: 0.78em;
+    font-weight: 700;
+}
+
+.hero-buttons {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.hero-buttons .play-btn {
+    margin: 0;
+}
+
+.hero-btn,
+.hero-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 22px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #eee;
+    border: 1px solid #555;
+    border-radius: 999px;
+    font-family: 'Montserrat';
+    font-weight: 700;
+    font-size: 0.95em;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.hero-icon-btn {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+}
+
+.hero-btn:hover,
+.hero-icon-btn:hover {
+    border-color: #aaa;
+    color: #fff;
+    background: rgba(40, 40, 40, 0.8);
+}
+
+.hero-btn svg,
+.hero-icon-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.hero-btn.active svg,
+.hero-icon-btn.active svg {
+    fill: currentColor;
+}
+
+.hero-btn[data-list="liked"].active {
+    color: #ff2a2a;
+    border-color: currentColor;
+}
+
+.hero-btn[data-list="watchlist"].active,
+.hero-icon-btn[data-list="watchlist"].active {
+    color: #e8b84a;
+    border-color: currentColor;
+}
+
+.hero-poster {
+    position: absolute;
+    right: 11%;
+    top: 48px;
+    width: 230px;
+    border-radius: 14px;
+    transform: perspective(900px) rotateY(-10deg) rotate(3deg);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    z-index: 1;
+}
+
+.hero-strip {
+    position: absolute;
+    right: 28px;
+    bottom: 24px;
+    display: flex;
+    gap: 10px;
+    z-index: 3;
+}
+
+.hero-thumb {
+    position: relative;
+    width: 56px;
+    height: 84px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #111;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.hero-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.hero-thumb:hover {
+    opacity: 1;
+    transform: translateY(-3px);
+}
+
+.hero-thumb.active {
+    opacity: 1;
+    border-color: var(--blood-red);
+}
+
+.hero-thumb .bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left;
+    background: var(--blood-red);
+}
+
+.hero-thumb.active .bar {
+    animation: heroBar 8s linear forwards; /* keep in step with HERO_MS in script.js */
+}
+
+.hero-showcase.paused .hero-thumb.active .bar {
+    animation-play-state: paused;
+}
+
+@keyframes heroBar {
+    from {
+        transform: scaleX(0);
+    }
+    to {
+        transform: scaleX(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-thumb.active .bar {
+        animation: none;
+        width: 100%;
+    }
+}
+
+/* =====================================================================
+   Browse by genre
+   ===================================================================== */
+.genre-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 30px;
+}
+
+.genre-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 120px;
+    padding: 0 18px;
+    overflow: hidden;
+    background: #0a0a0a;
+    border: 1px solid #222;
+    border-left: 4px solid var(--accent, var(--blood-red));
+    border-radius: 10px;
+    text-decoration: none;
+    color: #fff;
+    transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+
+.genre-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent, var(--blood-red));
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+}
+
+.gc-icon {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 auto;
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 35%, #000);
+    border: 1px solid color-mix(in srgb, var(--accent) 60%, #000);
+}
+
+.gc-text {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gc-name {
+    font-family: 'Montserrat';
+    font-size: 1.15em;
+    text-shadow: 0 2px 8px #000;
+}
+
+.gc-count {
+    font-family: 'Montserrat';
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #bbb;
+    text-shadow: 0 2px 8px #000;
+}
+
+.gc-collage {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 62%;
+    display: flex;
+    justify-content: flex-end;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 60%);
+    mask-image: linear-gradient(to right, transparent, #000 60%);
+}
+
+.gc-collage img {
+    height: 100%;
+    width: 25%;
+    object-fit: cover;
+    opacity: 0.8;
+}
+
+/* =====================================================================
+   Streaming services + "Trending on" tabs
+   ===================================================================== */
+.network-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.network-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    background: #0d0d0d;
+    border: 1px solid #262626;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+
+.network-card:hover {
+    border-color: var(--blood-red);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(218, 0, 0, 0.2);
+}
+
+.nc-logo {
+    height: 72px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #050505;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.nc-logo img {
+    max-width: 70%;
+    max-height: 56px;
+    object-fit: contain;
+    border-radius: 12px;
+}
+
+/* studio logos are often black on transparent: turn them white so they show on the dark tile */
+.nc-logo.company img {
+    filter: brightness(0) invert(1);
+    border-radius: 0;
+    max-width: 80%;
+}
+
+.nc-logo .network-fallback {
+    font-size: 0.85em;
+    letter-spacing: 1px;
+    line-height: 1.25;
+    text-align: center;
+    padding: 0 8px;
+    overflow-wrap: anywhere;
+}
+
+.nc-name {
+    font-family: 'Montserrat';
+    font-weight: 700;
+}
+
+.nc-count {
+    font-family: 'Montserrat';
+    font-size: 0.8em;
+    color: #999;
+}
+
+.network-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.network-tab {
+    padding: 9px 18px;
+    background: #0d0d0d;
+    color: #bbb;
+    border: 1px solid #2a2a2a;
+    border-radius: 999px;
+    font-family: 'Montserrat';
+    font-weight: 700;
+    font-size: 0.8em;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.network-tab:hover {
+    color: #fff;
+    border-color: #777;
+}
+
+.network-tab.active {
+    background: var(--blood-red);
+    border-color: var(--blood-red);
+    color: #fff;
+}
+
+.movie-row.loading {
+    opacity: 0.45;
+    transition: opacity 0.2s;
+}
+
+/* =====================================================================
+   Poster row arrows
+   ===================================================================== */
+.row-arrow {
+    position: absolute;
+    top: 120px;
+    width: 42px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 4px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 8px;
+    font-size: 2em;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    z-index: 5;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.row-arrow[hidden] {
+    display: none;
+}
+
+.row-arrow.prev {
+    left: 6px;
+}
+
+.row-arrow.next {
+    right: 6px;
+}
+
+.carousel-container:hover .row-arrow,
+.row-arrow:focus-visible {
+    opacity: 1;
+}
+
+.row-arrow:hover {
+    background: var(--blood-red);
+    border-color: var(--blood-red);
+}
+
+@media (hover: none) {
+    .row-arrow {
+        display: none;
+    }
+
+    /* touch screens swipe */
+}
+
+/* =====================================================================
+   Sagas ("Ever epic series")
+   ===================================================================== */
+.collection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 18px;
+    margin-bottom: 30px;
+}
+
+.collection-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px;
+    text-align: left;
+    background: #0a0a0a;
+    color: #fff;
+    border: 1px solid #222;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+
+.collection-card:hover:not(:disabled) {
+    transform: translateY(-4px);
+    border-color: var(--blood-red);
+    box-shadow: 0 10px 20px rgba(218, 0, 0, 0.2);
+}
+
+.collection-card:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
+
+.collection-card[hidden] {
+    display: none;
+}
+
+.cc-stack {
+    display: flex;
+    height: 132px;
+    margin-bottom: 10px;
+}
+
+.cc-stack img {
+    height: 100%;
+    width: 88px;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+}
+
+.cc-stack img + img {
+    margin-left: -34px; /* posters overlap like a fanned stack of cards */
+}
+
+.cc-name {
+    font-family: 'Montserrat';
+    font-weight: 800;
+}
+
+.cc-count {
+    font-family: 'Montserrat';
+    font-size: 0.8em;
+    color: #999;
+}
+
+/* =====================================================================
+   Pop-up (movie details, saga lists)
+   ===================================================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 1500; /* above the header (600), below toasts (2000) */
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(3px);
+}
+
+.modal-box {
+    position: relative;
+    width: min(940px, 100%);
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 30px;
+    background: #0b0b0b;
+    border: 1px solid #333;
+    border-top: 3px solid var(--blood-red);
+    border-radius: 12px;
+}
+
+.modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #151515;
+    color: #ddd;
+    border: 1px solid #333;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.modal-close:hover {
+    background: var(--blood-red);
+    border-color: var(--blood-red);
+}
+
+.modal-close svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.details {
+    display: flex;
+    gap: 28px;
+}
+
+.details-poster {
+    width: 240px;
+    height: 360px;
+    object-fit: cover;
+    border-radius: 10px;
+    flex: 0 0 auto;
+}
+
+.details-info h2 {
+    margin: 0 40px 8px 0;
+    font-size: 2em;
+}
+
+.details-facts {
+    margin-bottom: 12px;
+    font-family: 'Montserrat';
+    color: #bbb;
+    font-size: 0.9em;
+}
+
+.details-overview {
+    margin-bottom: 14px;
+    line-height: 1.6;
+    color: #ddd;
+}
+
+.details-cast {
+    margin-bottom: 18px;
+    color: #999;
+    font-size: 0.9em;
+}
+
+.details-cast:empty {
+    display: none;
+}
+
+.saga h2 {
+    margin: 0 40px 6px 0;
+}
+
+.saga-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    margin-top: 16px;
+}
+
+.saga-grid .movie-card img {
+    height: 225px;
+}
+
+@media (max-width: 720px) {
+    .details {
+        flex-direction: column;
+    }
+
+    .details-poster {
+        width: 160px;
+        height: 240px;
+    }
+}
+
+/* Smaller screens: the new home sections step down gracefully (a full phone/tablet pass comes later) */
+@media (max-width: 1100px) {
+    .hero-poster {
+        display: none;
+    }
+
+    .genre-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .hero-strip {
+        display: none !important;
+    }
+
+    /* the hero still rotates by itself */
+    .hero-showcase {
+        height: 520px;
+    }
+
+    .hero-content {
+        padding: 28px;
+    }
+}
+
+@media (max-width: 600px) {
+    .genre-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .network-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .collection-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .modal-box {
+        padding: 20px;
+    }
+}
+
+/* Rows that slide by themselves: no scrollbar, page dots instead */
+.movie-row.has-dots {
+    scrollbar-width: none;
+}
+
+.movie-row.has-dots::-webkit-scrollbar {
+    display: none;
+}
+
+.row-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    min-height: 10px;
+    margin-top: 2px;
+}
+
+.row-dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: #444;
+    cursor: pointer;
+    transition: width 0.25s, background 0.25s;
+}
+
+.row-dot:hover {
+    background: #888;
+}
+
+.row-dot.active {
+    width: 22px;
+    background: var(--blood-red);
+}
+
+/* =====================================================================
+   Section banners + poster grids (home page)
+   ===================================================================== */
+.section-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 40px 0 18px;
+    padding: 16px 22px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, #0a0a0a), #0a0a0a 75%);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, #111);
+    border-radius: 12px;
+}
+
+.sb-icon {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 40%, #000);
+}
+
+.sb-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sb-title {
+    margin: 0;
+    font-family: 'Montserrat';
+    font-size: 1.5em;
+    color: var(--accent);
+}
+
+.sb-sub {
+    font-family: 'Montserrat';
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #aaa;
+    white-space: pre;
+}
+
+.poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); /* 8 across on a 1280px screen, so 16 posters = 2 full rows */
+    gap: 16px;
+}
+
+.poster-grid .movie-card img {
+    height: auto;
+    aspect-ratio: 2 / 3;
+}
+
+/* =====================================================================
+   Footer
+   ===================================================================== */
+body:not([data-page="login"]):not([data-page="register"]) #app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+body:not([data-page="login"]):not([data-page="register"]) #app > .content {
+    flex: 1 0 auto;
+    width: 100%;
+    box-sizing: border-box; /* .content has side padding; without this, width:100% + padding makes the page scroll sideways */
+}
+
+.site-footer {
+    position: relative;
+    z-index: 1;
+    margin-top: 50px;
+    padding: 40px 40px 24px;
+    background: rgba(5, 5, 5, 0.92);
+    border-top: 1px solid rgba(218, 0, 0, 0.25);
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 30px;
+}
+
+.footer-brand .logo {
+    font-size: 1.8em;
+}
+
+.footer-brand p {
+    max-width: 340px;
+    margin-top: 12px;
+    color: #999;
+    font-size: 0.9em;
+    line-height: 1.6;
+}
+
+.footer-col {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.footer-col h4 {
+    margin: 0 0 6px;
+    font-family: 'Montserrat';
+    font-size: 0.9em;
+    letter-spacing: 1px;
+    color: #fff;
+}
+
+.footer-col a {
+    color: #999;
+    text-decoration: none;
+    font-family: 'Montserrat';
+    font-size: 0.88em;
+    transition: color 0.2s;
+}
+
+.footer-col a:hover {
+    color: var(--blood-red);
+}
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 30px;
+    padding-top: 18px;
+    border-top: 1px solid #1a1a1a;
+    color: #777;
+    font-family: 'Montserrat';
+    font-size: 0.78em;
+}
+
+.footer-bottom p {
+    margin: 0;
+}
+
+/* Room under the last line, so the round back-to-top button never sits on top of the credit text at the end of a page. */
+.footer-bottom {
+    padding-bottom: 76px;
+}
+
+@media (max-width: 900px) {
+    .footer-bottom {
+        padding-bottom: 72px;
+    }
+}
+
+.tmdb-credit {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tmdb-credit a {
+    display: inline-flex;
+}
+
+@media (max-width: 800px) {
+    .footer-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .footer-brand {
+        grid-column: 1 / -1;
+    }
+
+    .site-footer {
+        padding: 30px 20px 20px;
+    }
+}
+
+/* =====================================================================
+   Legal pages
+   ===================================================================== */
+.legal-page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 10px 0 20px;
+    line-height: 1.75;
+    color: #ccc;
+}
+
+.legal-page h1 {
+    margin: 0 0 14px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--blood-red);
+    font-size: 2.2em;
+    color: #fff;
+}
+
+.legal-page h2 {
+    margin: 30px 0 8px;
+    font-family: 'Montserrat';
+    font-size: 1.2em;
+    color: #fff;
+    scroll-margin-top: 100px;
+}
+
+.legal-page ul,
+.legal-page ol {
+    padding-left: 22px;
+}
+
+.legal-page li {
+    margin-bottom: 8px;
+}
+
+.legal-page a {
+    color: #ff4d4d;
+}
+
+.legal-updated {
+    color: #888;
+    font-size: 0.9em;
+}
+
+.legal-warning {
+    padding: 12px 16px;
+    border: 1px solid var(--blood-red);
+    border-radius: 8px;
+    background: rgba(218, 0, 0, 0.12);
+    color: #ffb3b3;
+}
+
+/* =====================================================================
+   Hero trailer (desktop only, see trailersAllowed() in script.js)
+   ===================================================================== */
+.hero-trailer {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 0;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #000;
+    opacity: 0;
+    transition: opacity 0.9s ease; /* fades in once the video really plays, so loading spinners are never seen */
+    pointer-events: none;
+}
+
+.hero-trailer.on {
+    opacity: 1;
+}
+
+.hero-trailer iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    pointer-events: none;
+}
+
+.trailer-sound {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 4;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid #555;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+}
+
+.trailer-sound:hover {
+    border-color: #aaa;
+}
+
+/* =====================================================================
+   Phone / tablet navigation: bottom tab bar + genres sheet
+   ===================================================================== */
+.tab-bar {
+    display: none;
+}
+
+.sheet-overlay {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 700;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.sheet {
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+    background: #0b0b0b;
+    border-top: 2px solid var(--blood-red);
+    border-radius: 16px 16px 0 0;
+}
+
+.sheet-handle {
+    width: 42px;
+    height: 4px;
+    margin: 0 auto 14px;
+    border-radius: 2px;
+    background: #444;
+}
+
+.sheet h3 {
+    margin: 14px 0 10px;
+    font-size: 1rem;
+}
+
+.sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.sheet-grid a {
+    padding: 13px 14px;
+    background: #121212;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.sheet-grid a:active {
+    border-color: var(--blood-red);
+}
+
+#user-profile.open .profile-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+@media (min-width: 901px) {
+    .sheet-overlay {
+        display: none !important;
+    }
+}
+
+/* =====================================================================
+   TABLET and below (up to 900px): app-style navigation, fluid layout
+   ===================================================================== */
+@media (max-width: 900px) {
+    .tab-bar {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 650;
+        height: calc(60px + env(safe-area-inset-bottom));
+        padding-bottom: env(safe-area-inset-bottom);
+        background: rgba(8, 8, 8, 0.96);
+        backdrop-filter: blur(14px);
+        border-top: 1px solid rgba(218, 0, 0, 0.3);
+    }
+
+    .tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        padding: 0;
+        background: none;
+        border: 0;
+        color: #888;
+        font: 600 11px 'Montserrat', sans-serif;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .tab svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .tab.active {
+        color: var(--blood-red);
+    }
+
+    body.has-tabbar {
+        padding-bottom: calc(60px + env(safe-area-inset-bottom));
+    }
+
+    .top-bar {
+        height: 64px;
+        padding: 0 16px;
+    }
+
+    .logo {
+        font-size: 1.5em;
+        letter-spacing: 2px;
+    }
+
+    .nav-links {
+        display: none; /* the tab bar replaces it */
+    }
+
+    .search-box {
+        display: none;
+    }
+
+    body.search-open .search-box {
+        display: block;
+        position: fixed;
+        top: 64px;
+        left: 0;
+        right: 0;
+        z-index: 590;
+        padding: 10px 16px;
+        background: rgba(10, 10, 10, 0.98);
+        border-bottom: 1px solid #222;
+    }
+
+    body.search-open #search-input {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 16px; /* 16px or more stops iPhones from zooming into the field */
+    }
+
+    .content {
+        margin-top: 80px;
+        padding: 0 16px 24px;
+    }
+
+    .filter-toolbar {
+        margin-top: 64px;
+        padding: 12px 16px;
+        gap: 10px 20px;
+    }
+
+    .filter-toolbar #category-title {
+        white-space: normal;
+        font-size: 1.25em;
+    }
+
+    .toolbar-sort {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .section-title {
+        font-size: 1.15em;
+        margin: 24px 0 12px;
+    }
+
+    .hero-showcase {
+        height: auto;
+        min-height: 460px;
+        margin-bottom: 24px;
+        background-position: center;
+    }
+
+    .hero-content {
+        padding: 24px 20px;
+        max-width: none;
+    }
+
+    .hero-content p {
+        font-size: 0.95em;
+        margin-bottom: 18px;
+    }
+
+    .hero-buttons {
+        gap: 10px;
+    }
+
+    .hero-buttons .play-btn {
+        padding: 11px 22px;
+        font-size: 1em;
+    }
+
+    .hero-btn {
+        padding: 10px 16px;
+    }
+
+    .trailer-sound {
+        display: none !important; /* trailers only play on big screens */
+    }
+
+    .dj-board {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    #server-switcher {
+        width: 100%;
+    }
+
+    .player-actions {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    iframe {
+        height: auto;
+        aspect-ratio: 16 / 9;
+        margin-bottom: 24px;
+    }
+
+    .movie-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 14px;
+    }
+
+    .movie-grid .movie-card img {
+        height: auto;
+        aspect-ratio: 2 / 3;
+    }
+
+    .toast {
+        bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+    }
+
+    .site-footer {
+        padding: 30px 16px 20px;
+    }
+}
+
+/* =====================================================================
+   PHONE (up to 600px)
+   ===================================================================== */
+@media (max-width: 600px) {
+    .acc-label,
+    .account-btn .chev {
+        display: none;
+    }
+
+    .account-btn {
+        padding: 8px 12px;
+    }
+
+    .right-controls {
+        gap: 12px;
+    }
+
+    .movie-row {
+        gap: 12px;
+    }
+
+    .movie-card {
+        flex: 0 0 140px;
+    }
+
+    .movie-card img {
+        height: 210px;
+    }
+
+    .movie-card h4 {
+        font-size: 12px;
+        margin: 8px;
+    }
+
+    .card-genres { font-size: 10px; margin: -4px 8px 8px; }
+
+    .movie-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .poster-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .genre-card {
+        height: 96px;
+    }
+
+    .network-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        margin-right: -16px;
+        padding-right: 16px;
+        scrollbar-width: none;
+    }
+
+    .network-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .network-tab {
+        flex: 0 0 auto;
+    }
+
+    .hero-showcase {
+        min-height: 420px;
+    }
+
+    .hero-facts {
+        font-size: 0.8em;
+    }
+
+    /* filter pop-ups become a sheet above the tab bar, instead of a floating box that runs off the edge */
+    .filter-popover {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        top: auto !important;
+        bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-height: 55vh;
+        overflow-y: auto;
+        transform: none !important;
+    }
+
+    .footer-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 24px 16px;
+    }
+
+    .footer-brand {
+        grid-column: 1 / -1;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* profile / history / liked / watchlist / settings tabs: scroll sideways instead of overflowing the screen */
+@media (max-width: 900px) {
+    .dash-tabs {
+        gap: 24px;
+        padding: 0 16px;
+        margin-top: 16px;
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: none;
+    }
+
+    .dash-tabs::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* profile header, hero buttons and the gap under the filter bar on small screens */
+@media (max-width: 900px) {
+    .filter-toolbar ~ .content {
+        margin-top: 16px;
+    }
+
+    .dash-banner {
+        height: 190px;
+    }
+
+    .dash-user-info {
+        padding: 0 16px;
+        margin-top: -44px;
+        gap: 14px;
+    }
+
+    .dash-avatar-wrapper {
+        flex: 0 0 auto;
+        width: 96px;
+        height: 96px;
+    }
+
+    .dash-text-info h1 {
+        font-size: 1.4em;
+    }
+
+    .dash-text-info p {
+        font-size: 0.95em;
+    }
+}
+
+@media (max-width: 600px) {
+    .hero-buttons .play-btn {
+        padding: 10px 16px;
+        font-size: 0.9em;
+    }
+
+    .hero-btn {
+        padding: 10px 14px;
+        font-size: 0.85em;
+    }
+}
+
+
+/* =====================================================================
+   ENDLESS SCROLL + BACK TO TOP
+   ===================================================================== */
+.grid-end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    min-height: 60px;
+    padding: 30px 0 10px;
+}
+
+.grid-end-msg {
+    margin: 0;
+    color: #777;
+    font-size: 0.95em;
+    letter-spacing: 1px;
+}
+
+.grid-more-btn {
+    background: transparent;
+    color: #fff;
+    border: 1px solid var(--blood-red);
+    border-radius: 6px;
+    padding: 12px 28px;
+    font: 700 0.95em 'Montserrat', sans-serif;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.grid-more-btn:hover {
+    background: var(--blood-red);
+    box-shadow: 0 0 14px rgba(218, 0, 0, 0.5);
+}
+
+.to-top {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 640;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: var(--blood-red);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6), 0 0 18px rgba(218, 0, 0, 0.35);
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.to-top svg {
+    width: 24px;
+    height: 24px;
+}
+
+.to-top.show {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+.to-top:hover {
+    background: #ff0000;
+}
+
+.to-top:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+}
+
+/* On phones the tab bar sits at the bottom, so the button floats above it. */
+@media (max-width: 900px) {
+    .to-top {
+        right: 16px;
+        bottom: calc(60px + env(safe-area-inset-bottom) + 16px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .to-top {
+        transition: opacity 0.1s;
+        transform: none;
+    }
+}
+
+
+/* A grid item may shrink below the width of its longest word/title. Without this, one long movie name stretched
+   a whole column and pushed the page wider than the phone screen. */
+.movie-grid > *, .poster-grid > *, .genre-grid > *, .network-grid > *, .collection-grid > *, .footer-grid > * {
+    min-width: 0;
+}
+
+/* =====================================================================
+   Loading skeletons (dark shimmer with a red glint)
+   A skeleton is a grey "ghost" of a card that sits where the real card will appear, so the page does not jump
+   when the data arrives. The JS replaces them (renderRow / fillGrid / renderGrid / showGridMessage); this block is
+   only the look. To remove the feature, delete this block and the SK calls in script.js.
+   ===================================================================== */
+.sk {
+    position: relative;
+    overflow: hidden;
+    background: #111;
+}
+
+.sk::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 38%, rgba(218, 0, 0, 0.16) 50%, rgba(255, 255, 255, 0.05) 62%, transparent 100%);
+    animation: sk-sweep 1.7s ease-in-out infinite;
+}
+
+@keyframes sk-sweep {
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* it reuses .movie-card for width, border and rounding, so it is exactly the size of the real card */
+.sk-card {
+    pointer-events: none;
+}
+
+.sk-card:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: #222;
+}
+
+.sk-poster {
+    height: 300px;
+    border-radius: 4px 4px 0 0;
+}
+
+.sk-line {
+    height: 10px;
+    width: 60%;
+    margin: 13px auto;
+    border-radius: 6px;
+}
+
+.poster-grid .sk-poster {
+    height: auto;
+    aspect-ratio: 2 / 3;
+}
+
+@media (max-width: 900px) {
+    .movie-grid .sk-poster {
+        height: auto;
+        aspect-ratio: 2 / 3;
+    }
+}
+
+@media (max-width: 600px) {
+    .sk-poster {
+        height: 210px;
+    }
+
+    .sk-line {
+        margin: 10.5px auto;
+    }
+}
+
+/* hero placeholder: same box as the real hero (it shares .hero-showcase) with a few bars where the text will be */
+.hero-skel {
+    align-items: flex-end;
+}
+
+.hero-skel-content {
+    position: relative;
+    z-index: 1;
+    padding: 40px;
+    width: min(560px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.hero-skel-content .sk {
+    border-radius: 6px;
+    background: #1a1a1a;
+}
+
+.hero-skel-content .b1 {
+    height: 14px;
+    width: 90px;
+}
+
+.hero-skel-content .b2 {
+    height: 40px;
+    width: 80%;
+}
+
+.hero-skel-content .b3 {
+    height: 12px;
+    width: 100%;
+}
+
+.hero-skel-content .b4 {
+    height: 12px;
+    width: 70%;
+}
+
+.hero-skel-content .b5 {
+    height: 44px;
+    width: 190px;
+    margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+    .hero-skel-content {
+        padding: 22px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sk::after {
+        animation: none;
+        transform: none;
+        opacity: 0.5;
+    }
+}
+
+/* =====================================================================
+   Top-bar pages, Discord button, "See all" links, all-genres toggle, Region filter
+   ===================================================================== */
+.nav-links {
+    gap: 24px;
+    align-items: center;
+}
+
+.nav-item {
+    white-space: nowrap;
+}
+
+.nav-discord {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: #5865f2;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.9em;
+    white-space: nowrap;
+    transition: filter 0.2s, transform 0.2s;
+}
+
+.nav-discord:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+}
+
+.nav-discord .ico-fill, .sheet-discord .ico-fill {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    stroke: none;
+    flex: none;
+}
+
+.sheet-discord {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #5865f2 !important;
+    border-color: #5865f2 !important;
+    color: #fff;
+}
+
+/* the 4-column genre menu */
+.mega-menu {
+    left: -120px;
+}
+
+/* "See all ›" at the right end of a section title / banner */
+.see-all {
+    margin-left: auto;
+    float: right;
+    font-size: 0.55em;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #aaa;
+    white-space: nowrap;
+    transition: color 0.2s;
+}
+
+.see-all:hover {
+    color: var(--blood-red);
+}
+
+.section-banner .see-all {
+    float: none;
+    font-size: 0.9rem;
+    align-self: center;
+}
+
+/* home: only the first genres show until "Show all" is pressed */
+.genre-grid:not(.show-all) .gc-extra {
+    display: none;
+}
+
+.genre-more-btn {
+    display: block;
+    margin: 14px auto 0;
+    padding: 10px 22px;
+    background: transparent;
+    color: #ddd;
+    border: 1px solid #333;
+    border-radius: 999px;
+    font: 600 0.9rem 'Montserrat', sans-serif;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.genre-more-btn:hover {
+    border-color: var(--blood-red);
+    color: #fff;
+}
+
+/* Region filter: only on streaming-service pages; Trending page has no filters at all */
+.filter-toolbar:not(.has-provider) .provider-only {
+    display: none;
+}
+
+.filter-toolbar.no-filters .toolbar-filters {
+    display: none;
+}
+
+/* the bar is crowded between 901px and ~1500px: trim step by step so nothing runs off the screen */
+#search-input {
+    width: clamp(120px, 13vw, 220px);
+}
+
+@media (max-width: 1500px) and (min-width: 901px) {
+    .nav-links {
+        gap: 18px;
+    }
+
+    .nav-discord span {
+        display: none;
+    }
+
+    .nav-discord {
+        padding: 9px 10px;
+    }
+
+    .right-controls {
+        gap: 12px;
+    }
+}
+
+@media (max-width: 1250px) and (min-width: 901px) {
+    .top-bar {
+        padding: 0 20px;
+    }
+
+    .nav-links {
+        gap: 12px;
+        font-size: 0.88em;
+    }
+
+    .nav-emoji {
+        display: none;
+    }
+
+    .logo {
+        font-size: 1.6em;
+        letter-spacing: 2px;
+    }
+}
+
+@media (max-width: 1060px) and (min-width: 901px) {
+    .acc-label, .account-btn .chev {
+        display: none;
+    }
+
+    .account-btn {
+        padding: 8px 12px;
+    }
+
+    #search-input {
+        width: 110px;
+    }
+}
+
+/* release year on the poster */
+.year-tag {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font: 700 11px 'Montserrat', sans-serif;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+}
+
+/* =====================================================================
+   Watch page
+   ===================================================================== */
+.watch-view {
+    position: relative;
+    max-width: 1560px;
+    margin: 0 auto;
+    padding: 8px 0 30px;
+}
+
+/* the movie's own backdrop, blurred and darkened, fixed behind everything */
+.watch-backdrop {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: #050505 center top / cover no-repeat;
+    filter: blur(38px) saturate(1.2) brightness(0.42);
+    transform: scale(1.15);
+    opacity: 0;
+    transition: opacity 0.9s ease;
+}
+
+.watch-backdrop[style] {
+    opacity: 1;
+}
+
+.watch-backdrop::after {
+    content: '';
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    background: linear-gradient(180deg, rgba(5, 5, 5, 0.2), #050505 92%);
+}
+
+.watch-back {
+    display: inline-block;
+    margin: 6px 0 14px;
+    padding: 7px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    color: #ddd;
+    font: 600 0.9rem 'Montserrat', sans-serif;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.watch-back:hover {
+    border-color: var(--blood-red);
+    color: #fff;
+}
+
+/* the player stage. 16:9 is only the DEFAULT: script.js sets --ar to the real shape of the picture that arrived
+   (see fitStage), so a square or 4:3 source is shown as it really is instead of being squashed into a 16:9 box.
+   "height: auto" keeps aspect-ratio in charge; nothing here may set a height. */
+.watch-frame {
+    position: relative;
+    aspect-ratio: var(--ar, 16 / 9);
+    height: auto;
+    width: 100%;
+    background: #000;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255, 26, 26, 0.12), 0 18px 60px rgba(0, 0, 0, 0.75), 0 0 80px rgba(255, 26, 26, 0.14);
+}
+
+.watch-frame iframe {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    margin: 0;
+    border-radius: 0;
+}
+
+/* the real <video>: always fills the stage, letterboxed in the middle, never squashed.
+   max-width / max-height + object-fit: contain are what guarantee the picture keeps its own proportions. */
+.watch-frame video {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    margin: auto;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    background: #000;
+    border: 0;
+}
+
+/* big centre play button, hidden while playing */
+#pl-bigplay {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    margin: auto;
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    border: 2px solid var(--blood-red);
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+#pl-bigplay:hover {
+    transform: scale(1.06);
+    background: rgba(218, 0, 0, 0.35);
+}
+
+.watch-frame.playing #pl-bigplay {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* control bar, auto-hides after 2.6s of no mouse movement */
+.pl-controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 14px 12px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.92));
+    transition: opacity 0.25s, transform 0.25s;
+}
+
+.watch-frame.idle .pl-controls {
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+}
+
+.pl-controls button {
+    background: none;
+    border: 0;
+    color: #e8e8e8;
+    font-size: 16px;
+    line-height: 1;
+    padding: 5px 7px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.2s;
+}
+
+.pl-controls button:hover {
+    color: var(--blood-red);
+}
+
+.pl-controls button[hidden] {
+    display: none;
+}
+
+/* seek bar: red = played, grey = buffered, dark = remaining */
+.pl-seek {
+    flex: 1;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    cursor: pointer;
+    --p: 0%;
+    --b: 0%;
+    background: linear-gradient(to right, var(--blood-red) 0 var(--p), #6a6a6a var(--p) var(--b), #333 var(--b) 100%);
+}
+
+.pl-seek::-webkit-slider-thumb {
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--blood-red);
+    box-shadow: 0 0 6px rgba(218, 0, 0, 0.7);
+}
+
+.pl-seek::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--blood-red);
+}
+
+.pl-volume {
+    width: 74px;
+    accent-color: var(--blood-red);
+    cursor: pointer;
+}
+
+.pl-time {
+    font-size: 12px;
+    color: #b8b8b8;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* quality / subtitle menus */
+.pl-menu {
+    position: absolute;
+    right: 14px;
+    bottom: 64px;
+    min-width: 124px;
+    padding: 6px;
+    background: rgba(10, 10, 10, 0.97);
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    z-index: 5;
+}
+
+.pl-menu[hidden] {
+    display: none;
+}
+
+.pl-opt {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    font-size: 13px;
+    background: none;
+    border: 0;
+    color: #cfcfcf;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.pl-opt:hover, .pl-opt.on {
+    background: var(--blood-red);
+    color: #fff;
+}
+
+/* status line ("Trying NEXUS…", "Resumed at 47:12") */
+.pl-toast {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 7px 15px;
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.78);
+    font-size: 13px;
+    color: #eee;
+    z-index: 6;
+}
+
+.pl-toast[hidden] {
+    display: none;
+}
+
+/* one slim glass bar under the player: server on the left, hint in the middle, Like / Watch later on the right */
+.watch-player .dj-board {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    margin: 14px 0 0;
+    padding: 10px 14px;
+    background: rgba(12, 12, 12, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+}
+
+.server-pick {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.server-pick label {
+    color: #999;
+    font: 700 0.72rem 'Montserrat', sans-serif;
+    letter-spacing: 1.5px;
+}
+
+.watch-hint {
+    flex: 1;
+    margin: 0;
+    color: #777;
+    font-size: 0.8rem;
+    min-width: 160px;
+}
+
+.watch-player .player-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.watch-info {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr) 330px;
+    gap: 30px;
+    margin: 34px 0 10px;
+    align-items: start;
+    min-height: 120px;
+}
+
+.watch-info.no-poster {
+    grid-template-columns: minmax(0, 1fr) 330px;
+}
+
+.watch-poster {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.7);
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    background: #111;
+}
+
+.watch-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(1.7rem, 4.2vw, 2.9rem);
+    line-height: 1.12;
+    margin: 0 0 10px;
+    text-shadow: 0 2px 24px rgba(0, 0, 0, 0.8);
+}
+
+.watch-info .details-facts {
+    color: #bbb;
+    letter-spacing: 0.3px;
+    margin: 0 0 12px;
+}
+
+.watch-tagline {
+    margin: 4px 0 12px;
+    color: #aaa;
+    font-style: italic;
+}
+
+.watch-info .hero-genres {
+    margin: 0 0 14px;
+}
+
+.watch-info .details-overview {
+    max-width: 820px;
+    color: #d2d2d2;
+    line-height: 1.7;
+    margin: 0 0 18px;
+}
+
+.watch-facts {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 12px 20px;
+    padding: 18px 20px;
+    font-size: 0.9rem;
+    background: rgba(12, 12, 12, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+}
+
+.wf-label {
+    color: #888;
+}
+
+.wf-value {
+    color: #eee;
+    font-weight: 600;
+}
+
+.watch-sk-title {
+    height: 34px;
+    width: min(420px, 70%);
+    border-radius: 6px;
+    margin-bottom: 14px;
+}
+
+.watch-sk-line {
+    height: 14px;
+    width: min(760px, 100%);
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.watch-sk-line.short {
+    width: min(520px, 70%);
+}
+
+.watch-block {
+    margin-top: 34px;
+}
+
+.watch-cast {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    gap: 14px;
+    padding: 4px 2px 14px;
+}
+
+.cast-card {
+    min-width: 0;
+    text-align: center;
+    font-size: 0.8rem;
+    padding: 12px 8px;
+    background: rgba(14, 14, 14, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.cast-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 26, 26, 0.5);
+}
+
+.cast-photo {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 8px;
+    background: #151515;
+    border: 1px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font: 700 1.6rem 'Montserrat', sans-serif;
+}
+
+.cast-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cast-card b {
+    display: block;
+    color: #eee;
+    line-height: 1.25;
+}
+
+.cast-card span {
+    display: block;
+    color: #888;
+    margin-top: 2px;
+    line-height: 1.25;
+}
+
+@media (max-width: 700px) {
+    .watch-player .dj-board {
+        padding: 10px;
+    }
+
+    .cast-card {
+        flex-basis: 88px;
+    }
+
+    .cast-photo {
+        width: 88px;
+        height: 88px;
+    }
+
+    .pl-volume {
+        display: none;
+    }
+
+    .pl-time {
+        font-size: 11px;
+    }
+
+    #pl-bigplay {
+        width: 62px;
+        height: 62px;
+        font-size: 21px;
+    }
+}
+
+/* =====================================================================
+   Shimmer on the genre / streaming-service / saga tiles while their numbers and pictures load.
+   The JS removes data-loading when a tile is done (or has failed), so a shimmer can never get stuck.
+   ===================================================================== */
+[data-loading] .gc-count,
+[data-loading] .nc-count,
+[data-loading] .cc-count {
+    position: relative;
+    display: inline-block;
+    min-width: 72px;
+    border-radius: 4px;
+    background: #161616;
+    overflow: hidden;
+}
+
+[data-loading] .gc-collage, [data-loading] .cc-stack {
+    position: relative;
+    overflow: hidden;
+    background: #121212;
+}
+
+[data-loading] .gc-count::after, [data-loading] .nc-count::after, [data-loading] .cc-count::after,
+[data-loading] .gc-collage::after, [data-loading] .cc-stack::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.05) 38%, rgba(218, 0, 0, 0.16) 50%, rgba(255, 255, 255, 0.05) 62%, transparent 100%);
+    animation: sk-sweep 1.7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-loading] *::after {
+        animation: none !important;
+    }
+}
+
+/* =====================================================================
+   Person page (actor / director): photo + facts on the left, biography + known-for on the right, credit lists below.
+   ===================================================================== */
+.person-layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 36px;
+    margin-top: 18px;
+    align-items: start;
+}
+
+.person-photo {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #151515;
+    border: 1px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font: 700 4rem 'Montserrat', sans-serif;
+}
+
+.person-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pf-heading {
+    margin: 22px 0 10px;
+    font: 700 1.1rem 'Montserrat', sans-serif;
+    color: #fff;
+}
+
+.pf-label {
+    margin-top: 12px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+.pf-value {
+    color: #999;
+    font-size: 0.9rem;
+    margin-top: 2px;
+}
+
+.person-main .section-title {
+    margin-top: 26px;
+}
+
+.person-bio {
+    max-width: 900px;
+    color: #ccc;
+    line-height: 1.7;
+    white-space: pre-line;
+    margin: 0;
+}
+
+.person-bio.clamped {
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.person-more {
+    background: none;
+    border: 0;
+    color: #999;
+    cursor: pointer;
+    padding: 8px 0;
+    font: 600 0.88rem 'Montserrat', sans-serif;
+}
+
+.person-more:hover {
+    color: #fff;
+}
+
+.credits-box {
+    margin-top: 34px;
+}
+
+.credits-list {
+    background: #0d0d0d;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 6px 18px;
+}
+
+.credit-row {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) minmax(0, 0.7fr);
+    gap: 14px;
+    align-items: center;
+    padding: 13px 0;
+    border-bottom: 1px solid #1c1c1c;
+    color: #ddd;
+    text-decoration: none;
+}
+
+.credit-row:last-child {
+    border-bottom: 0;
+}
+
+.credit-row:hover .credit-title {
+    color: var(--blood-red);
+}
+
+.credit-year {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.credit-title {
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.credit-note {
+    color: #777;
+    font-size: 0.84rem;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+a.cast-card {
+    color: inherit;
+    text-decoration: none;
+}
+
+a.cast-card:hover .cast-photo {
+    border-color: var(--blood-red);
+}
+
+a.cast-card:hover b {
+    color: var(--blood-red);
+}
+
+@media (max-width: 800px) {
+    .person-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 20px;
+    }
+
+    .person-photo {
+        max-width: 220px;
+    }
+
+    .credit-row {
+        grid-template-columns: 48px 1fr;
+    }
+
+    .credit-note {
+        grid-column: 2;
+        text-align: left;
+    }
+}
+
+.person-main, .person-side {
+    min-width: 0;
+}
+
+@media (max-width: 800px) {
+    .watch-info {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .watch-poster {
+        max-width: 170px;
+    }
+
+    .watch-hint {
+        order: 3;
+        flex-basis: 100%;
+    }
+
+    .watch-player .player-actions {
+        margin-left: 0;
+    }
+}
+
+
+/* "More like this": one tidy row. The grid has room for one row only; the extra cards are folded away, so there is never a scrollbar. */
+.watch-similar {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    grid-template-rows: auto;
+    grid-auto-rows: 0;
+    gap: 0 16px;
+    overflow: hidden;
+    padding: 10px 0 0;
+}
+
+/* no bottom padding: it would show the folded-away second row */
+.watch-similar .movie-card {
+    width: auto;
+    min-width: 0;
+    flex: none;
+}
+
+@media (max-width: 1150px) {
+    .watch-info {
+        grid-template-columns: 200px minmax(0, 1fr);
+    }
+
+    .watch-info.no-poster {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .watch-facts {
+        grid-column: 1 / -1;
+        grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 800px) {
+    .watch-facts {
+        grid-template-columns: max-content minmax(0, 1fr);
+    }
+
+    .watch-similar {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}
+
+/* bottom-right of the poster: "KR · MOVIE" / "US · TV" */
+.type-tag {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #ddd;
+    font: 700 10px 'Montserrat', sans-serif;
+    letter-spacing: 0.4px;
+    pointer-events: none;
+    max-width: calc(100% - 66px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.type-tag.is-tv {
+    color: #fff;
+    background: rgba(218, 0, 0, 0.78);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+/* genres under the title, and the YouTube / AI / SHORT label that replaces "MOVIE" on the poster */
+.card-genres { margin: -6px 10px 10px; font: 600 11px 'Montserrat', sans-serif; color: #8c8c8c; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-genres[hidden] { display: none; }
+.type-tag.is-kind { color: #111; background: #f2c14e; border-color: rgba(0,0,0,0.35); }
+.type-tag.is-yt { color: #fff; background: #c4302b; border-color: rgba(255,255,255,0.3); }
+.type-tag.is-ai { color: #fff; background: #6a3dc9; border-color: rgba(255,255,255,0.3); }
+.type-tag.is-yt.is-ai { background: linear-gradient(90deg, #6a3dc9, #c4302b); }
+.chip-kind { border-color: #f2c14e; color: #f2c14e; }
+.chip-kind-label { background: #f2c14e; color: #111; font-weight: 800; }
+/* Continue watching: where you stopped ("▶ 1:02:33") and a thin red progress line along the bottom of the poster */
+.resume-tag { position: absolute; top: 8px; left: 8px; z-index: 3; padding: 3px 9px; border-radius: 999px; background: rgba(218,0,0,0.88); color: #fff; font: 700 11px 'Montserrat', sans-serif; letter-spacing: 0.3px; pointer-events: none; }
+.resume-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,0.25); pointer-events: none; border-radius: 0 0 6px 6px; overflow: hidden; }
+.resume-bar i { display: block; height: 100%; background: var(--blood-red); box-shadow: 0 0 8px rgba(218,0,0,0.8); }
+.cam-tag + .rating-tag { }  /* (the CAM badge is on the card, not the poster, so the two never overlap) */
+
+/* =====================================================================================================================
+   POLISH: motion and finishing touches. Nothing here changes layout or logic; it only adds feel.
+   Everything that moves sits inside "no-preference" so people who ask their system for less motion get none of it.
+   ===================================================================================================================== */
+::selection { background: var(--blood-red); color: #fff; }
+
+/* keyboard / TV-remote users get a clear ring; mouse users do not see it */
+:focus-visible { outline: 2px solid var(--blood-red); outline-offset: 3px; border-radius: 4px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 1px; }
+
+/* cards: the picture zooms inside its frame instead of the whole card only lifting */
+.movie-card .poster { overflow: hidden; border-radius: 4px 4px 0 0; }
+.movie-card .poster img { transition: filter 0.3s, transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.movie-card:hover .poster img { transform: scale(1.06); }
+.hero-btn, .hero-icon-btn, .play-btn, .card-btn, .player-save-btn { transition: transform 0.2s, background-color 0.25s, border-color 0.25s, box-shadow 0.25s, color 0.25s; }
+
+@media (prefers-reduced-motion: no-preference) {
+    /* the page eases in instead of snapping (opacity only: a transform on <body> would break the fixed header) */
+    body { animation: pageIn 0.5s ease-out; }
+    @keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* cards rise in one after another whenever a row or grid is drawn (also when you change a filter or scroll for more).
+       fill-mode is "backwards" on purpose: once finished, the card goes back to normal so the hover lift still works. */
+    .movie-card { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s, box-shadow 0.35s; animation: cardIn 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+    .movie-card:nth-child(2) { animation-delay: 0.04s; }
+    .movie-card:nth-child(3) { animation-delay: 0.08s; }
+    .movie-card:nth-child(4) { animation-delay: 0.12s; }
+    .movie-card:nth-child(5) { animation-delay: 0.16s; }
+    .movie-card:nth-child(6) { animation-delay: 0.20s; }
+    .movie-card:nth-child(7) { animation-delay: 0.24s; }
+    .movie-card:nth-child(8) { animation-delay: 0.28s; }
+    .movie-card:nth-child(n+9) { animation-delay: 0.32s; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(22px) scale(0.97); } to { opacity: 1; transform: none; } }
+    .movie-card:active { transform: translateY(-4px) scale(0.985); }
+
+    /* hero banner and logo */
+    .hero-showcase { animation: heroIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+    @keyframes heroIn { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+
+    /* top links: a red line grows under the word */
+    .nav-item::after { content: ''; position: absolute; left: 0; right: 0; bottom: 2px; height: 2px; background: var(--blood-red); transform: scaleX(0); transform-origin: left; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .nav-item:hover::after { transform: scaleX(1); }
+    .dropdown:hover .mega-menu { animation: menuIn 0.2s ease-out; }
+    @keyframes menuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+    /* buttons answer a press */
+    .hero-btn:hover, .hero-icon-btn:hover, .play-btn:hover { transform: translateY(-2px); }
+    .hero-btn:active, .hero-icon-btn:active, .play-btn:active, .card-btn:active, .player-save-btn:active { transform: scale(0.95); }
+
+    /* section titles and rows slide up as they scroll into view. Only browsers that support scroll-driven animation do this
+       (Chrome, Edge, Brave); the rest simply show everything at once, so nothing can ever stay hidden. */
+    @supports (animation-timeline: view()) {
+        .section-title, .carousel-container { animation: revealUp linear both; animation-timeline: view(); animation-range: entry 0% entry 55%; }
+        @keyframes revealUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+    }
+}
+
+/* =====================================================================================================================
+   POLISH 2: the header, page-to-page transitions, hero crossfade, card tilt + light, ambience
+   ===================================================================================================================== */
+
+/* header: soft and see-through at the very top of a page, solid with a shadow once you scroll. (height is left alone, so every
+   phone/tablet layout below keeps working as before) */
+.top-bar { transition: background-color 0.35s, border-color 0.35s, box-shadow 0.35s; }
+body:not(.scrolled) .top-bar { background: linear-gradient(to bottom, rgba(5, 5, 5, 0.92), rgba(5, 5, 5, 0.35)); border-bottom-color: transparent; }
+body.scrolled .top-bar { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65); border-bottom-color: rgba(218, 0, 0, 0.35); }
+
+/* a faint dark edge around the screen, behind everything (the particles stay visible in the middle) */
+body::after { content: ''; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.5) 100%); }
+
+/* the player's frame glows very slightly, like a screen in a dark room */
+.watch-frame { box-shadow: 0 0 70px rgba(218, 0, 0, 0.12), 0 20px 60px rgba(0, 0, 0, 0.6); }
+
+/* cards: the light under the mouse */
+.movie-card .poster::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 2; pointer-events: none; opacity: 0; transition: opacity 0.3s; background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.16), transparent 55%); }
+.movie-card:hover .poster::after { opacity: 1; }
+
+@media (prefers-reduced-motion: no-preference) {
+    /* (the browser's cross-page "view transition" was removed: now and then Chrome aborted it and printed a red error in the console.
+       The page simply fades in by itself, see the body pageIn animation, which works everywhere.) */
+
+    /* cards lean towards the mouse. --rx/--ry are set by setupPolish() while the pointer is over the card */
+    .movie-card:hover { transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-8px); }
+    .movie-card:hover:active { transform: perspective(800px) translateY(-4px) scale(0.985); }
+
+    /* hero: the previous picture fades out over the new one, the text and the poster slide back in, and the picture drifts as you scroll */
+    .hero-showcase { position: relative; }
+    .hero-showcase.hero-swap::before { content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; border-radius: 12px; background-image: var(--prev-bg); background-size: cover; background-position: center top; animation: heroFade 0.9s ease forwards; pointer-events: none; }
+    @keyframes heroFade { to { opacity: 0; } }
+    .hero-showcase.hero-swap .hero-content { animation: heroText 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+    .hero-showcase.hero-swap .hero-poster { animation: heroPoster 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+    @keyframes heroText { from { opacity: 0; transform: translateY(18px); } }
+    @keyframes heroPoster { from { opacity: 0; transform: translateX(26px) scale(0.97); } }
+    @supports (animation-timeline: scroll()) {
+        .hero-showcase { animation: heroIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards, heroDrift linear both; animation-timeline: auto, scroll(root); animation-range: normal, 0 700px; }
+        @keyframes heroDrift { from { background-position-y: 0%; } to { background-position-y: 35%; } }
+    }
+
+    /* the red bar by a section title grows when the title appears */
+    .section-title { border-left-color: transparent; background: linear-gradient(var(--blood-red), var(--blood-red)) left / 4px 100% no-repeat border-box; }
+    @supports (animation-timeline: view()) {
+        .section-title { animation: revealUp linear both, barGrow linear both; animation-timeline: view(), view(); animation-range: entry 0% entry 55%, entry 10% entry 80%; }
+        @keyframes barGrow { from { background-size: 4px 0%; } to { background-size: 4px 100%; } }
+    }
+}
+
+/* =====================================================================================================================
+   POLISH 3: clean line icons, logo glitch, Discord button, HOT badge
+   ===================================================================================================================== */
+.nav-ico, .nav-chev { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; flex: none; }
+.nav-ico { margin-right: 6px; }
+.nav-chev { width: 0.95em; height: 0.95em; margin-left: 2px; transition: transform 0.25s; }
+.dropdown:hover .nav-chev { transform: rotate(180deg); }
+.nav-item .nav-emoji { transition: color 0.25s; }
+.nav-item:hover .nav-ico { stroke: var(--blood-red); }
+.sheet-grid a .nav-ico { margin-right: 6px; }
+
+/* the little HOT tag */
+.nav-badge { box-shadow: 0 0 10px rgba(255, 110, 0, 0.7); display: inline-block; margin-left: 7px; padding: 2px 7px; border-radius: 999px; font-style: normal; font-size: 0.62em; font-weight: 900; letter-spacing: 0.6px; color: #fff; background: linear-gradient(135deg, #ff7a00, #da0000); vertical-align: 0.15em; }
+
+/* Discord button: green "online" dot, a passing shine, the logo flips on hover */
+.nav-discord { position: relative; overflow: hidden; }
+.nav-discord .live-dot { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3ddc84; flex: none; }
+.nav-discord .live-dot::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 50%; background: inherit; opacity: 0; }
+.nav-discord .ico-fill { transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.nav-discord:hover .ico-fill { transform: rotateY(180deg); }
+.nav-discord::before { content: ''; position: absolute; top: 0; left: -80%; width: 45%; height: 100%; pointer-events: none; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent); transform: skewX(-20deg); }
+.nav-discord:hover::before { left: 135%; transition: left 0.75s ease; }
+
+/* search box: a soft red glow when you click in */
+.search-box input { transition: box-shadow 0.3s, border-color 0.3s; }
+.search-box input:focus { border-color: var(--blood-red); box-shadow: 0 0 0 2px rgba(218, 0, 0, 0.35), 0 0 22px rgba(218, 0, 0, 0.25); outline: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .nav-badge { animation: hotBlink 1.5s ease-in-out infinite; }
+    @keyframes hotBlink { 0%, 100% { opacity: 0.65; } 50% { opacity: 1; } }
+    .nav-discord .live-dot::after { animation: ringPulse 1.8s ease-out infinite; }
+    @keyframes ringPulse { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.8); opacity: 0; } }
+    .hero-kicker::before { animation: kickerPulse 1.8s ease-in-out infinite; }
+    @keyframes kickerPulse { 50% { opacity: 0.35; } }
+
+    /* the logo: calm most of the time, then a short burst of TV-static trouble (red/cyan split, sliced and shaken) every few seconds */
+    .top-bar .logo { position: relative; display: inline-block; animation: logoJitter 4.6s steps(1) infinite; }
+    .top-bar .logo::before, .top-bar .logo::after { content: attr(data-text); position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0; text-shadow: none; }
+    .top-bar .logo::before { color: #00e5ff; mix-blend-mode: screen; animation: glitchA 4.6s steps(1) infinite; }
+    .top-bar .logo::after { color: #ff2a55; mix-blend-mode: screen; animation: glitchB 4.6s steps(1) infinite; }
+    .top-bar .logo:hover { animation: logoJitter 0.9s steps(1) infinite; }
+    .top-bar .logo:hover::before { animation-duration: 0.9s; }
+    .top-bar .logo:hover::after { animation-duration: 0.9s; }
+    @keyframes logoJitter { 0%, 86%, 100% { transform: none; } 87% { transform: translate(2px, 0) skewX(-8deg); } 89% { transform: translate(-2px, 1px); } 91% { transform: skewX(6deg); } 93% { transform: translate(1px, -1px); } 95% { transform: none; } }
+    @keyframes glitchA { 0%, 86%, 96%, 100% { opacity: 0; } 87% { opacity: 1; transform: translate(-3px, 0); clip-path: inset(8% 0 58% 0); } 89% { opacity: 1; transform: translate(3px, 1px); clip-path: inset(55% 0 12% 0); } 91% { opacity: 1; transform: translate(-2px, 0); clip-path: inset(28% 0 40% 0); } 94% { opacity: 1; transform: translate(2px, 0); clip-path: inset(70% 0 4% 0); } }
+    @keyframes glitchB { 0%, 86%, 96%, 100% { opacity: 0; } 88% { opacity: 1; transform: translate(3px, 0); clip-path: inset(40% 0 30% 0); } 90% { opacity: 1; transform: translate(-3px, -1px); clip-path: inset(10% 0 62% 0); } 92% { opacity: 1; transform: translate(2px, 1px); clip-path: inset(62% 0 10% 0); } 95% { opacity: 1; transform: translate(-2px, 0); clip-path: inset(20% 0 52% 0); } }
+}
+
+/* medium laptop screens: the icons and the HOT tag need a little room, so the top bar tightens up before anything touches */
+@media (max-width: 1420px) and (min-width: 901px) {
+    .nav-links { gap: 12px; font-size: 0.9em; }
+    .nav-ico { margin-right: 4px; }
+    .nav-badge { margin-left: 4px; padding: 1px 5px; }
+    .logo { letter-spacing: 3px; }
+}
+@media (max-width: 1480px) and (min-width: 901px) {
+    .nav-emoji { display: none; }     /* with six links the little icons no longer fit beside the Discord button, the words stay */
+}
+
+/* account button + menus use the same clean icons */
+.account-btn .acc-ico { display: inline-flex; }
+.account-btn .nav-ico { margin-right: 0; width: 1.15em; height: 1.15em; vertical-align: middle; }
+.account-item .ai-icon { display: inline-flex; align-items: center; justify-content: center; }
+.account-item .ai-icon .nav-ico { margin: 0; width: 1.25em; height: 1.25em; }
+.profile-menu a .nav-ico { margin-right: 8px; vertical-align: -0.22em; }
+
+/* genre / banner line icons */
+.g-ico { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: -0.2em; }
+.menu-col a .g-ico { margin-right: 8px; opacity: 0.85; transition: transform 0.25s, opacity 0.25s; }
+.menu-col a:hover .g-ico { opacity: 1; transform: scale(1.15) rotate(-6deg); }
+.gc-icon .g-ico, .sb-icon .g-ico { width: 26px; height: 26px; stroke: #fff; stroke-width: 1.8; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 80%, transparent)); transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.genre-card:hover .gc-icon .g-ico { transform: scale(1.15) rotate(-8deg); }
+.sheet-grid a .g-ico { margin-right: 6px; }
+
+/* Discord dot: red when the invite is dead */
+.nav-discord .live-dot.down { background: #ff3b3b; box-shadow: 0 0 8px rgba(255, 59, 59, 0.8); }
+.nav-discord .live-dot.down::after { animation: none; opacity: 0; }
+
+/* opening splash */
+#splash { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 100000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; cursor: pointer;
+    background: radial-gradient(ellipse at center, #1a0000 0%, #050505 65%); transition: opacity 0.65s ease, transform 0.65s ease; }
+#splash.leaving { opacity: 0; transform: scale(1.06); pointer-events: none; }
+.splash-logo { position: relative; font-family: 'Cinzel Decorative', serif; font-weight: 700; font-size: clamp(2.2rem, 9vw, 5.5rem); color: var(--blood-red); letter-spacing: 0.7em; text-indent: 0.7em; text-shadow: 0 0 30px rgba(218, 0, 0, 0.6);
+    animation: splashLogo 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.splash-logo::before, .splash-logo::after { content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%; text-indent: inherit; opacity: 0; pointer-events: none; text-shadow: none; mix-blend-mode: screen; }
+.splash-logo::before { color: #00e5ff; animation: glitchA 1.5s steps(1) 0.7s 1; }
+.splash-logo::after { color: #ff2a55; animation: glitchB 1.5s steps(1) 0.7s 1; }
+@keyframes splashLogo { from { opacity: 0; letter-spacing: 0.9em; filter: blur(8px); } 60% { opacity: 1; filter: blur(0); } to { opacity: 1; letter-spacing: 0.35em; } }
+.splash-line { width: min(320px, 60vw); height: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; border-radius: 2px; }
+.splash-line i { display: block; height: 100%; width: 100%; background: var(--blood-red); box-shadow: 0 0 12px var(--blood-red); transform: scaleX(0); transform-origin: left; animation: splashBar 1.7s cubic-bezier(0.5, 0, 0.2, 1) 0.15s forwards; }
+@keyframes splashBar { to { transform: scaleX(1); } }
+.splash-sub { font-family: 'Montserrat', sans-serif; font-size: 0.75rem; letter-spacing: 6px; color: #888; animation: splashSub 1.2s ease 0.5s both; }
+@keyframes splashSub { from { opacity: 0; transform: translateY(6px); } }
+
+/* button icons (play, back, close, sort, volume, eye, mail) */
+.ui-ico { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; flex: none; }
+.ui-ico.fill { fill: currentColor; stroke: none; }
+.play-btn .ui-ico, .watch-back .ui-ico, .clear-btn .ui-ico, .sort-button .ui-ico { margin-right: 6px; }
+.sort-button .ui-ico { margin: 0 0 0 4px; width: 1em; height: 1em; }
+.trailer-sound .ui-ico { margin: 0; width: 1.2em; height: 1.2em; }
+.pw-toggle .ui-ico { margin: 0; width: 1.25em; height: 1.25em; }
+.auth-success-icon .ui-ico { width: 1em; height: 1em; stroke-width: 1.6; }
+.watch-back:hover .ui-ico { transform: translateX(-3px); }
+.watch-back .ui-ico { transition: transform 0.25s; }
+.account-btn .chev .nav-chev { margin: 0; width: 0.9em; height: 0.9em; vertical-align: middle; }
+
+
+/* =====================================================================================================================
+   LITE MODE: for weak devices (smart TVs and the like). script.js adds class "lite" to <html> automatically on TV browsers,
+   and you can force it with ?lite=1 (or switch it off with ?lite=0). It keeps the layout and removes the decoration that costs
+   CPU/GPU: every animation, tilt, light, vignette and shadow glow. The particles and the hero trailer are skipped in script.js.
+   ===================================================================================================================== */
+html.lite body { animation: none; }
+html.lite body::after, html.lite .movie-card .poster::after { display: none; }
+html.lite .movie-card, html.lite .hero-showcase, html.lite .section-title, html.lite .carousel-container, html.lite .nav-badge,
+html.lite .live-dot::after, html.lite .hero-kicker::before, html.lite .top-bar .logo, html.lite .top-bar .logo::before, html.lite .top-bar .logo::after,
+html.lite .hero-swap::before, html.lite .hero-swap .hero-content, html.lite .hero-swap .hero-poster, html.lite .mega-menu, html.lite .nav-discord .live-dot { animation: none !important; }
+html.lite .live-dot::after, html.lite .top-bar .logo::before, html.lite .top-bar .logo::after, html.lite .hero-swap::before { display: none; }
+html.lite .movie-card { transition: border-color 0.15s; }
+html.lite .movie-card:hover { transform: none; }
+html.lite .movie-card .poster img { transition: none; }
+html.lite .movie-card:hover .poster img { transform: none; }
+html.lite .top-bar, html.lite .nav-discord .ico-fill, html.lite .nav-item::after { transition: none; }
+html.lite .top-bar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+html.lite .gc-icon .g-ico, html.lite .sb-icon .g-ico { filter: none; }
+html.lite .watch-frame { box-shadow: none; }
+html.lite .nav-badge { box-shadow: none; }
+html.lite .hero-thumb.active .bar { animation: none; transform: scaleX(1); opacity: 0.6; }
+
+/* =====================================================================================================================
+   DESIGN PASS 2: messages, loading line, empty/error screens, image fade, button feedback.
+   Only transform and opacity animate (cheap everywhere). Lite mode (TV) and "reduce motion" turn the movement off.
+   ===================================================================================================================== */
+
+/* ---- messages (toasts): slide in, thin countdown line, quick exit ---- */
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(92vw, 520px);
+    padding: 13px 18px 15px 14px;
+    overflow: hidden;
+    cursor: pointer;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 3px solid var(--blood-red);
+    background: rgba(14, 14, 16, 0.96);
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.7);
+    font-size: 14px;
+    line-height: 1.35;
+    animation: toastIn 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+.toast.out { animation: toastOut 0.2s ease forwards; }
+.toast-ico { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; color: #3ddc84; background: rgba(61, 220, 132, 0.12); }
+.toast-text { flex: 1 1 auto; min-width: 0; }
+.toast-error { border-left-color: #ff9d2e; }
+.toast-error .toast-ico { color: #ff9d2e; background: rgba(255, 157, 46, 0.14); }
+.toast-action { flex: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; }
+.toast-action:hover { background: rgba(255, 255, 255, 0.08); }
+.toast-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--blood-red);
+    transform-origin: left;
+    animation: toastBar linear forwards;
+}
+.toast-error .toast-bar { background: #ff9d2e; }
+.toast.paused .toast-bar { animation-play-state: paused; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 18px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes toastOut { to { opacity: 0; transform: translate(-50%, 10px) scale(0.97); } }
+@keyframes toastBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---- the thin loading line at the top of the screen ---- */
+#route-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 3000; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+#route-bar.on { opacity: 1; }
+#route-bar i { display: block; height: 100%; transform: scaleX(0); transform-origin: left; transition: transform 0.25s linear;
+    background: linear-gradient(90deg, #7d0000, #da0000 60%, #ff6a4d); box-shadow: 0 0 10px rgba(218, 0, 0, 0.8); }
+
+/* ---- "nothing here yet" and "something went wrong" screens ---- */
+.state-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 38px 20px 34px;
+    text-align: center;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    background: radial-gradient(circle at 50% 0%, rgba(218, 0, 0, 0.10), transparent 65%);
+    animation: stateIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.state-block.compact { flex-direction: row; justify-content: center; gap: 16px; padding: 22px 20px; text-align: left; }
+.state-ico { display: grid; place-items: center; flex: none; width: 58px; height: 58px; border-radius: 50%; color: #ff6b6b;
+    background: rgba(218, 0, 0, 0.10); border: 1px solid rgba(218, 0, 0, 0.32); }
+.state-block.compact .state-ico { width: 46px; height: 46px; }
+.state-block.is-error .state-ico { color: #ff9d2e; background: rgba(255, 157, 46, 0.10); border-color: rgba(255, 157, 46, 0.35); }
+.state-body { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.state-block.compact .state-body { align-items: flex-start; gap: 8px; }
+.state-text { margin: 0; max-width: 420px; color: #b5b5b5; font-weight: 600; line-height: 1.5; }
+.state-retry { padding: 8px 18px; border-radius: 999px; cursor: pointer; font: 700 12px 'Montserrat', sans-serif; letter-spacing: 0.06em;
+    text-transform: uppercase; color: #fff; background: transparent; border: 1px solid rgba(255, 255, 255, 0.28); transition: background 0.15s, border-color 0.15s, transform 0.1s; }
+.state-retry:hover { background: var(--blood-red); border-color: var(--blood-red); }
+@keyframes stateIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.grid-message { grid-column: 1 / -1; }
+
+/* the plain <p class="empty-note"> lines on Liked, Watchlist and History get the same look */
+p.empty-note {
+    margin: 18px 0;
+    padding: 76px 20px 30px;
+    position: relative;
+    text-align: center;
+    color: #b5b5b5;
+    font-weight: 600;
+    line-height: 1.5;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    background: radial-gradient(circle at 50% 0%, rgba(218, 0, 0, 0.10), transparent 65%);
+}
+p.empty-note::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    width: 46px;
+    height: 46px;
+    margin-left: -23px;
+    border-radius: 50%;
+    border: 1px solid rgba(218, 0, 0, 0.32);
+    background: rgba(218, 0, 0, 0.10) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff6b6b' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 21V11a7 7 0 0 1 14 0v10l-2.3-2-2.4 2-2.3-2-2.3 2-2.4-2z'/%3E%3Cpath d='M9.5 11v.01M14.5 11v.01'/%3E%3C/svg%3E") center / 26px no-repeat;
+}
+
+/* ---- pictures fade in when they arrive ---- */
+img.img-wait { opacity: 0; }
+img.img-in { animation: imgIn 0.45s ease backwards; }
+@keyframes imgIn { from { opacity: 0; } }
+
+/* ---- touch / click feedback: every button gives a tiny press ---- */
+.card-btn, .hero-btn, .hero-icon-btn, .auth-btn, .apply-btn, .clear-btn, .play-btn, .filter-pill, .sort-button, .grid-more-btn, .genre-more-btn, .pane-action-btn, .player-save-btn, .state-retry, .toast-action {
+    transition: transform 0.12s ease, background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.card-btn:active, .hero-btn:active, .hero-icon-btn:active, .auth-btn:active, .apply-btn:active, .clear-btn:active, .play-btn:active, .filter-pill:active,
+.sort-button:active, .grid-more-btn:active, .genre-more-btn:active, .pane-action-btn:active, .player-save-btn:active, .state-retry:active { transform: scale(0.95); }
+
+/* ---- lite mode (TV): no movement for any of the above; and a clear ring for the remote's selection ---- */
+html.lite .toast, html.lite .toast.out, html.lite .state-block, html.lite img.img-in, html.lite .toast-bar { animation: none; }
+html.lite .toast-bar, html.lite #route-bar { display: none; }
+html.lite a:focus, html.lite button:focus, html.lite .movie-card:focus { outline: 3px solid var(--blood-red); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+    .toast, .toast.out, .state-block, img.img-in, .toast-bar { animation: none; }
+}
+.state-block.compact { width: 100%; box-sizing: border-box; }
+
+/* ---- poster buttons sit ABOVE the year and "country · MOVIE" tags (they used to cover them) ---- */
+.card-actions { bottom: 42px; }
+.card-remove { bottom: 42px; }
+
+/* ---- lite mode, round 2 (TV scrolling): no blur, no glow, no blend and no shadows anywhere. Blur and shadows are what a
+   weak GPU struggles with while the page moves. Colours and layout stay exactly the same. ---- */
+html.lite *, html.lite *::before, html.lite *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+}
+html.lite .watch-backdrop { display: none; }
+html.lite .top-bar { background: #0a0a0a; }
+html.lite .mega-menu, html.lite .account-menu, html.lite .toast { background: #0e0e10; }
+
+/* =====================================================================================================================
+   SERIES PAGE: the episode stage, season tabs and episode list.
+   ===================================================================================================================== */
+.series-stage { position: relative; width: 100%; margin: 6px 0 14px; overflow: hidden; border-radius: 18px; background: #000;
+    border: 1px solid rgba(218, 0, 0, 0.25); }
+.series-stage::before { content: ''; display: block; padding-top: 56.25%; }          /* 16:9 without aspect-ratio (older TVs) */
+.series-stage[hidden] { display: none; }
+.series-still { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #0a0a0a center / cover no-repeat; }
+.series-still::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.35) 45%, rgba(0, 0, 0, 0.15) 100%); }
+.series-play { position: absolute; top: 50%; left: 50%; z-index: 2; display: grid; place-items: center; width: 88px; height: 88px; margin: -56px 0 0 -44px;
+    border-radius: 50%; cursor: pointer; color: #fff; background: rgba(0, 0, 0, 0.45); border: 2px solid var(--blood-red);
+    transition: transform 0.15s ease, background-color 0.2s; }
+.series-play:hover { background: var(--blood-red); transform: scale(1.06); }
+.series-play:active { transform: scale(0.95); }
+.series-stage-ui { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 18px 22px; }
+.series-stage-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.series-stage-label { font: 800 12px 'Montserrat', sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--blood-red); }
+.series-stage-title { font-size: clamp(17px, 2.4vw, 26px); line-height: 1.2; }
+.series-stage-meta { color: #b5b5b5; font-size: 13px; }
+.series-stage-nav { display: flex; gap: 8px; flex: none; }
+.series-step { padding: 8px 14px; border-radius: 999px; cursor: pointer; font: 700 12px 'Montserrat', sans-serif; letter-spacing: 0.05em; color: #fff;
+    background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.25); transition: background-color 0.15s, transform 0.1s; }
+.series-step:hover:not(:disabled) { background: var(--blood-red); border-color: var(--blood-red); }
+.series-step:active:not(:disabled) { transform: scale(0.95); }
+.series-step:disabled { opacity: 0.35; cursor: default; }
+.series-actions { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 8px; }
+
+.season-tabs { display: flex; gap: 8px; margin: 4px 0 14px; padding-bottom: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.season-tabs::-webkit-scrollbar { display: none; }
+.season-tab { flex: none; padding: 8px 16px; border-radius: 999px; cursor: pointer; font: 700 13px 'Montserrat', sans-serif; color: #cfcfcf;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.1s; }
+.season-tab:hover { color: #fff; border-color: rgba(255, 255, 255, 0.35); }
+.season-tab:active { transform: scale(0.95); }
+.season-tab.active { color: #fff; background: var(--blood-red); border-color: var(--blood-red); }
+
+.episode-list { display: flex; flex-direction: column; gap: 10px; }
+.episode-row { display: flex; align-items: stretch; gap: 16px; width: 100%; padding: 10px; text-align: left; cursor: pointer; color: inherit; font: inherit;
+    border-radius: 14px; background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.08); transition: background-color 0.15s, border-color 0.15s; }
+.episode-row:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.2); }
+.episode-row.active { border-color: var(--blood-red); background: rgba(218, 0, 0, 0.1); }
+.episode-row.unaired { opacity: 0.6; }
+.sk-ep { height: 96px; border-color: transparent; cursor: default; background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.09), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: epShimmer 1.4s linear infinite; }
+@keyframes epShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.ep-thumb { position: relative; flex: none; width: 168px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #111; }
+.ep-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ep-num { position: absolute; left: 8px; bottom: 8px; min-width: 24px; padding: 2px 7px; border-radius: 6px; text-align: center; font: 800 12px 'Montserrat', sans-serif;
+    font-style: normal; color: #fff; background: rgba(0, 0, 0, 0.75); }
+.episode-row.active .ep-num { background: var(--blood-red); }
+.ep-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; justify-content: center; }
+.ep-title { font-size: 15px; }
+.ep-meta { color: #9a9a9a; font-size: 12px; }
+.ep-over { color: #b5b5b5; font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 640px) {
+    .ep-thumb { width: 116px; }
+    .ep-over { display: none; }
+    .series-stage-ui { padding: 12px 14px; }
+    .series-play { width: 64px; height: 64px; margin: -40px 0 0 -32px; }
+    .series-step { padding: 6px 10px; }
+}
+html.lite .series-play, html.lite .sk-ep { animation: none; }
+.ep-thumb::before { content: ''; display: block; padding-top: 56.25%; }      /* keeps the 16:9 shape on browsers without aspect-ratio (older TVs) */
+.ep-thumb img { position: absolute; top: 0; left: 0; }

@@ -1,0 +1,674 @@
+/* =====================================================================
+   player-ui.css  -  the look of the player's controls (pairs with player-ui.js).
+   Loaded AFTER style.css, so where a rule here matches a rule there, this one wins.
+   ===================================================================== */
+.watch-frame {
+    --pl-red: var(--blood-red, #da0000);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.watch-frame.is-full {
+    border-radius: 0;
+    border: 0;
+}
+
+.watch-frame.is-full video {
+    max-height: 100vh;
+}
+
+/* the control bar: a seek bar on top of one row of buttons, on a soft dark fade */
+.watch-frame .pl-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 46px 16px 10px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.55) 38%, rgba(0, 0, 0, 0.92));
+}
+
+.pl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.pl-left, .pl-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+}
+
+.watch-frame .pl-controls button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    color: #f1f1f1;
+    transition: background 0.15s, color 0.15s, transform 0.1s, width 0.15s, padding 0.15s;
+}
+
+.watch-frame .pl-controls button[hidden] {
+    display: none;
+}
+
+.watch-frame .pl-controls button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.watch-frame .pl-controls button:active {
+    transform: scale(0.92);
+}
+
+.watch-frame .pl-controls button.on {
+    color: var(--pl-red);
+}
+
+.watch-frame .pl-controls .pl-textbtn {
+    width: auto;
+    min-width: 46px;
+    padding: 0 10px;
+    border-radius: 20px;
+    font: 700 13px 'Montserrat', sans-serif;
+}
+
+.pl-time {
+    margin-left: 8px;
+    font: 600 13px 'Montserrat', sans-serif;
+    color: #d6d6d6;
+}
+
+/* the quality readout rides INSIDE the gear button, so the button has to grow with it instead of
+   squeezing the text out of the 40px circle */
+.watch-frame .pl-controls #pl-quality-btn:has(.pl-quality-label) {
+    width: auto;
+    gap: 5px;
+    padding: 0 9px;
+    border-radius: 20px;
+}
+
+.pl-quality-label {
+    font: 700 11px 'Montserrat', sans-serif;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* volume: the slider slides open next to the speaker on hover / focus */
+.pl-vol {
+    display: flex;
+    align-items: center;
+}
+
+.pl-volume {
+    width: 0;
+    opacity: 0;
+    margin: 0;
+    height: 4px;
+    appearance: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: width 0.2s, opacity 0.2s, margin 0.2s;
+    --v: 100%;
+    background: linear-gradient(to right, #fff 0 var(--v), rgba(255, 255, 255, 0.28) var(--v) 100%);
+}
+
+.pl-vol:hover .pl-volume, .pl-vol:focus-within .pl-volume {
+    width: 78px;
+    opacity: 1;
+    margin: 0 8px 0 2px;
+}
+
+.pl-volume::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.pl-volume::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+}
+
+/* the seek bar: thin, fattens on hover; red = played, light = loaded, white wash = where the mouse is */
+.pl-seekwrap {
+    position: relative;
+    height: 22px;
+    margin: 0 2px;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.pl-rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.22);
+    overflow: hidden;
+    transition: height 0.12s, margin-top 0.12s;
+}
+
+.pl-seekwrap:hover .pl-rail, .pl-seekwrap:focus-within .pl-rail {
+    height: 7px;
+    margin-top: -3.5px;
+}
+
+.pl-buf, .pl-hover, .pl-played {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+}
+
+.pl-buf {
+    background: rgba(255, 255, 255, 0.38);
+}
+
+.pl-hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.pl-played {
+    background: var(--pl-red);
+    box-shadow: 0 0 10px rgba(218, 0, 0, 0.6);
+}
+
+.pl-knob {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    background: var(--pl-red);
+    box-shadow: 0 0 8px rgba(218, 0, 0, 0.8);
+    transform: scale(0);
+    transition: transform 0.12s;
+    pointer-events: none;
+}
+
+.pl-seekwrap:hover .pl-knob, .pl-seekwrap:focus-within .pl-knob {
+    transform: scale(1);
+}
+
+.watch-frame .pl-seek {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    background: none;
+}
+
+.watch-frame .pl-seek::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+}
+
+/* hover preview: YouTube-style rounded frame card + timestamp pill */
+.watch-frame .pl-preview {
+    position: absolute;
+    bottom: 30px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.watch-frame .pl-preview[hidden] {
+    display: none;
+}
+
+.watch-frame .pl-thumb {
+    position: relative;
+    width: 240px;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0b0b0d;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.85);
+}
+
+.watch-frame .pl-thumb video,
+.watch-frame .pl-thumb canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.watch-frame .pl-thumb video[hidden],
+.watch-frame .pl-thumb canvas[hidden] {
+    display: none;
+}
+
+.watch-frame .pl-preview span {
+    padding: 3px 10px;
+    border-radius: 8px;
+    background: rgba(12, 12, 14, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+    font: 700 12px 'Montserrat', sans-serif;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+}
+
+/* big play button + spinner + on-screen messages */
+#pl-bigplay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+}
+
+#pl-bigplay svg {
+    width: 34px;
+    height: 34px;
+    margin-left: 4px;
+}
+
+.pl-spinner {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top-color: var(--pl-red);
+    opacity: 0;
+    pointer-events: none;
+    animation: pl-spin 0.8s linear infinite;
+}
+
+.watch-frame.buffering .pl-spinner {
+    opacity: 1;
+}
+
+.watch-frame.buffering #pl-bigplay {
+    opacity: 0;
+}
+
+@keyframes pl-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.pl-osd {
+    position: absolute;
+    top: 18%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 9px 20px;
+    border-radius: 22px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    font: 700 15px 'Montserrat', sans-serif;
+    pointer-events: none;
+    z-index: 6;
+}
+
+.pl-osd[hidden] {
+    display: none;
+}
+
+.watch-frame.idle {
+    cursor: none;
+}
+
+/* menus (speed, subtitles, quality), sitting just above the bar on the right */
+.watch-frame .pl-menu {
+    right: 16px;
+    bottom: 74px;
+    z-index: 8;
+    min-width: 150px;
+    max-height: 60%;
+    overflow-y: auto;
+    padding: 6px;
+    background: rgba(12, 12, 12, 0.96);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7);
+    scrollbar-width: thin;
+}
+
+#pl-subs {
+    min-width: 270px;
+    max-width: min(420px, 92%);
+}
+
+.pl-sep {
+    height: 1px;
+    margin: 6px 4px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.pl-note {
+    padding: 6px 10px;
+    color: #aaa;
+    font-size: 12px;
+}
+
+.pl-lang {
+    width: calc(100% - 12px);
+    margin: 4px 6px 6px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: #151515;
+    color: #eee;
+    font: 600 13px 'Montserrat', sans-serif;
+}
+
+.pl-sublist {
+    max-height: 190px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.pl-sublist .pl-opt {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+}
+
+.pl-sublist .pl-opt::after {
+    content: attr(data-count);
+    display: block;
+    color: #8a8a8a;
+    font-size: 10px;
+}
+
+.pl-sublist .pl-opt:hover::after, .pl-sublist .pl-opt.on::after {
+    color: #f0d0d0;
+}
+
+/* subtitle text on the picture (native cues) */
+.watch-frame video::cue {
+    background: none;
+    background-color: transparent;
+    color: #fff;
+    font-family: 'Montserrat', Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(16px, 2.2vw, 38px);
+    line-height: 1.3;
+    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 4px #000, 0 0 8px rgba(0, 0, 0, 0.9);
+}
+
+/* the old source bar under the player is replaced by the server button in the control bar; the select stays in the page because script.js drives it */
+.server-pick, .watch-hint {
+    display: none;
+}
+
+#pl-servers {
+    min-width: 240px;
+}
+
+/* =====================================================================
+   SERVER ROWS
+   Each source is a row of [name + details] [chip]. Without these rules the
+   row is a block div and every child stacks, and the base button rule turns
+   each chip into a 40px circle.
+   ===================================================================== */
+.watch-frame .pl-controls .pl-server-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+}
+
+.watch-frame .pl-controls .pl-server-row .pl-opt {
+    flex: 1 1 auto;
+    display: block;
+    width: auto;
+    height: auto;
+    min-height: 32px;
+    padding: 7px 10px;
+    border-radius: 9px;
+    text-align: left;
+    background: #161616;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #ddd;
+    font: 600 12px 'Montserrat', sans-serif;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.watch-frame .pl-controls .pl-server-row .pl-opt:hover {
+    background: #1f1f1f;
+    color: #fff;
+}
+
+.watch-frame .pl-controls .pl-server-row .pl-opt.on {
+    border-color: var(--pl-red);
+    color: #fff;
+}
+
+.watch-frame .pl-controls .pl-mark {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 8px;
+    background: #1c1c1c;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #b9b9b9;
+    font: 700 10px 'Montserrat', sans-serif;
+    letter-spacing: 0.04em;
+}
+
+.watch-frame .pl-controls .pl-mark:hover {
+    background: #262626;
+    color: #fff;
+}
+
+.watch-frame .pl-controls .pl-mark.on {
+    background: var(--pl-red);
+    border-color: var(--pl-red);
+    color: #fff;
+}
+
+@media (max-width: 800px) {
+    .watch-frame .pl-controls {
+        padding: 30px 8px 6px;
+    }
+
+    .watch-frame .pl-controls button {
+        width: 36px;
+        height: 36px;
+    }
+
+    .pl-vol {
+        display: none;
+    }
+
+    /* phones use the hardware volume buttons */
+    .pl-time {
+        margin-left: 4px;
+        font-size: 11px;
+    }
+
+    #pl-back10, #pl-fwd10 {
+        display: inline-flex;
+    }
+
+    .watch-frame .pl-thumb {
+        width: 148px;
+    }
+
+    .watch-frame .pl-menu {
+        right: 8px;
+        bottom: 62px;
+    }
+
+    .watch-frame .pl-controls .pl-mark {
+        height: 30px;
+        padding: 0 6px;
+        font-size: 9px;
+    }
+}
+
+/* subtitle sync row */
+.pl-sync {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 6px 2px;
+}
+
+.pl-sync-label {
+    flex: 0 0 100%;
+    color: #ddd;
+    font: 700 12px 'Montserrat', sans-serif;
+    padding: 0 4px 2px;
+}
+
+.watch-frame .pl-sync .pl-step {
+    width: auto;
+    height: auto;
+    padding: 5px 8px;
+    border-radius: 7px;
+    background: #1c1c1c;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #eee;
+    font: 700 12px 'Montserrat', sans-serif;
+    cursor: pointer;
+}
+
+.watch-frame .pl-sync .pl-step:hover {
+    background: var(--pl-red);
+}
+
+/* =====================================================================
+   EMBED MODE
+   The fallback iframe is someone else's player with its own bar. Ours sat
+   on top of it and swallowed every click, so the embed could not be used at
+   all. While .embed is set the bar leaves the screen completely; the source
+   select under the player and the small corner chip stay.
+   ===================================================================== */
+.watch-frame.embed .pl-controls,
+.watch-frame.embed .pl-seekwrap,
+.watch-frame.embed .pl-osd,
+.watch-frame.embed .pl-spinner,
+.watch-frame.embed #pl-bigplay {
+    display: none !important;
+}
+
+/* menus are still reachable, but only once explicitly opened, and they must sit above the iframe */
+.watch-frame.embed .pl-menu {
+    display: none !important;
+}
+
+.watch-frame.embed .pl-menu:not([hidden]) {
+    display: block !important;
+    z-index: 12;
+}
+
+.watch-frame.embed #pl-servers {
+    top: 46px;
+    right: 12px;
+    bottom: auto;
+}
+
+.watch-frame.embed #pl-subs {
+    bottom: auto;
+    top: 46px;
+}
+
+/* the iframe must receive every pointer event: the status pill stays but never takes a click */
+.watch-frame.embed .pl-toast {
+    pointer-events: none;
+}
+
+.watch-frame.embed iframe {
+    z-index: 1;
+}
+
+.watch-frame.embed video {
+    z-index: 0;
+}
+
+/* the only thing we keep on the picture: two small buttons, because the bar is gone */
+.pl-embedbar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 14;
+    display: flex;
+    gap: 6px;
+}
+
+.pl-embedbar button {
+    padding: 6px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    font: 700 11px 'Montserrat', sans-serif;
+}
+
+.pl-embedbar button:hover {
+    background: var(--pl-red);
+    border-color: var(--pl-red);
+}
+
+/* the notice under the player only means anything in embed mode */
+.watch-player:has(.watch-frame.embed) .watch-hint {
+    display: block;
+    color: #ffb0b0;
+}
+
+#embed-next {
+    margin-left: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--blood-red);
+    background: transparent;
+    color: #fff;
+    font: 700 11px 'Montserrat', sans-serif;
+    cursor: pointer;
+}
+
+#embed-next:hover {
+    background: var(--blood-red);
+}
+
+/* a cam recording in the server menu, so it is obvious which rows to skip */
+.pl-opt.is-cam {
+    color: #ff9f9f;
+}
