@@ -94,15 +94,15 @@
 18:51:09 min seeds 3
 18:51:09 skips 2
 18:51:09 watching D:\movies\staging
-03:31:49 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-03:31:49 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-03:31:49 grab 1.9.3 on http://0.0.0.0:8789 mode=fdm
-03:31:49 listening on every interface
-03:31:49 library D:\movies\library
-03:31:49 staging D:\movies\staging
-03:31:49 watch depth 3
-03:31:49 stale hand-off limit 120 min
-03:31:49 cam retry 12 h
-03:31:49 min seeds 3
-03:31:49 skips 2
-03:31:49 watching D:\movies\staging
+06:26:35 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
+06:26:35 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
+06:26:35 grab 1.9.3 on http://0.0.0.0:8789 mode=fdm
+06:26:35 listening on every interface
+06:26:35 library D:\movies\library
+06:26:35 staging D:\movies\staging
+06:26:35 watch depth 3
+06:26:35 stale hand-off limit 120 min
+06:26:35 cam retry 12 h
+06:26:35 min seeds 3
+06:26:35 skips 2
+06:26:35 watching D:\movies\staging

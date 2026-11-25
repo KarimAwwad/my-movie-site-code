@@ -52,9 +52,9 @@
 18:51:07 library 1.2.6 on http://0.0.0.0:8788
 18:51:07 root D:\movies\library
 18:51:07 cache D:\movies\cache
-03:31:46 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-03:31:46 drive pool: none (sprites stay local)
-03:31:49 scan: 12 file(s) matched, 0 unmatched
-03:31:49 library 1.2.6 on http://0.0.0.0:8788
-03:31:49 root D:\movies\library
-03:31:49 cache D:\movies\cache
+06:26:32 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
+06:26:32 drive pool: none (sprites stay local)
+06:26:36 scan: 12 file(s) matched, 0 unmatched
+06:26:36 library 1.2.6 on http://0.0.0.0:8788
+06:26:36 root D:\movies\library
+06:26:36 cache D:\movies\cache

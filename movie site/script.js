@@ -3664,6 +3664,7 @@ function fillSourceMenu() {
         manualPick = true;
         playSource(Number(sel.value));
     };
+    if (typeof buildServerMenu === 'function') buildServerMenu();
 }
 
 // Drops any <track> element (embedded or external) and its blob. player-ui.js owns the external ones, but
@@ -3726,6 +3727,7 @@ async function playSource(i) {
     const src = streamSources[i];
     const sel = pel('server-switcher');
     if (sel) sel.value = String(i);
+    if (typeof buildServerMenu === 'function') buildServerMenu();
 
     hideMiss();
     pToast(`Trying ${src.label}…`);
@@ -3764,9 +3766,9 @@ async function playSource(i) {
     // A progressive MP4 (the library's browser-safe files, and vidlink) is not an HLS playlist:
     // hls.js would fail to parse it, so feed the element directly.
     if (src.kind === 'mp4') {
+        v.src = src.url;
         addNativeSubs(src.subtitles);
         if (typeof buildSubtitleMenu === 'function') buildSubtitleMenu();
-        v.src = src.url;
         v.play().catch(() => {
         });
         return;
@@ -3775,9 +3777,9 @@ async function playSource(i) {
     // hls.js first, always. Chrome answers canPlayType() with "maybe", so the native branch would win by mistake
     // and never build a player. Native is only used where hls.js genuinely cannot run (iOS Safari).
     if (typeof Hls === 'undefined' || !Hls.isSupported()) {
+        v.src = src.url;
         addNativeSubs(src.subtitles);
         if (typeof buildSubtitleMenu === 'function') buildSubtitleMenu();
-        v.src = src.url;
         v.play().catch(() => {
         });
         return;
@@ -5045,7 +5047,7 @@ async function initSeries() {
     const idText = q.get('id') || '';
     if (!/^\d{1,9}$/.test(idText)) return seriesFail('That link does not point to a series.');
     const id = Number(idText);
-    SK.fill('similar-row', 8);
+    SK.fill('series-similar-row', 8);
 
     let d;
     try {
@@ -5144,7 +5146,7 @@ async function initSeries() {
 
     // more like this
     const similar = (d.similar?.results || []).filter(m => m.poster_path).map(slimTv);
-    if (similar.length) renderRow(similar, 'similar-row');
+    if (similar.length) renderRow(similar, 'series-similar-row');
     else document.getElementById('series-similar-box').hidden = true;
 }
 

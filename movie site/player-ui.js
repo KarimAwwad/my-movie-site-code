@@ -1013,7 +1013,7 @@
     function clearExtTrack() {
         const v = vid();
         if (v) {
-            v.querySelectorAll('track[data-ext], track[data-ruin-ext]').forEach(t => t.remove());
+            v.querySelectorAll('track[data-ext]').forEach(t => t.remove());
         }
         if (extSubBlobUrl) {
             URL.revokeObjectURL(extSubBlobUrl);
@@ -1706,7 +1706,7 @@
         }
         grabMisses = 0;
         if (job.state === 'done' || job.state === 'present') {
-            paintGrab('Filed. Reloading sources…', false);
+            paintGrab('Fetch a fresh copy', false);
             pToast(job.state === 'present' ? 'Already in the library.' : `Filed: ${(job.path || 'done').split(/[\\/]/).pop()}`);
             grabJob = null;
             try {
