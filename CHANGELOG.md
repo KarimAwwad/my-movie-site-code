@@ -9,8 +9,8 @@ Added at repository root: `PROJECT_CONTEXT.md`, `ARCHITECTURE.md`,
 `CHANGELOG.md`, `DEVELOPMENT_ROADMAP.md`, and `PATCH_NOTES.md`.
 
 Seeded from a read-only inspection of `movie site/`, `ruin-stream/`, and
-`ruintv server/`. No application source file changed. Thirteen issues are
-recorded: one S1 known wrong-association/security issue, and one S4 candidate.
+`ruintv server/`. No application source file changed. Thirteen issues are recorded: two S1 issues (wrong-association risk and
+exposed private credentials), and one S4 candidate.
 
 ### Observed baseline before this phase
 
