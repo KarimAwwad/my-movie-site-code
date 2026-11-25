@@ -11,15 +11,15 @@ changed.
 
 | File | Change |
 |---|---|
-| \`PROJECT_CONTEXT.md\` | Phase status, pre-Phase-0 baseline, configuration and security notes |
-| \`ARCHITECTURE.md\` | Subtitle state/accessor ownership and current adoption stages |
-| \`KNOWN_ISSUES.md\` | Corrected subtitle-offset description; separated historical/current adoption behavior; dead-code candidates; credential exposure |
-| \`TEST_RESULTS.md\` | Revision log and verified repository/documentation state |
-| \`CHANGELOG.md\` | Phase 0 review revision and status |
-| \`DEVELOPMENT_ROADMAP.md\` | Review status and revised sequencing |
-| \`PATCH_NOTES.md\` | This revision record and PowerShell verification/rollback steps |
+| `PROJECT_CONTEXT.md` | Phase status, pre-Phase-0 baseline, configuration and security notes |
+| `ARCHITECTURE.md` | Subtitle state/accessor ownership and current adoption stages |
+| `KNOWN_ISSUES.md` | Corrected subtitle-offset description; separated historical/current adoption behavior; dead-code candidates; credential exposure |
+| `TEST_RESULTS.md` | Revision log and verified repository/documentation state |
+| `CHANGELOG.md` | Phase 0 review revision and status |
+| `DEVELOPMENT_ROADMAP.md` | Review status and revised sequencing |
+| `PATCH_NOTES.md` | This revision record and PowerShell verification/rollback steps |
 
-\`DEVELOPMENT_RULES.md\` was not changed.
+`DEVELOPMENT_RULES.md` was not changed.
 
 ## Files deleted
 
@@ -39,7 +39,7 @@ Run in PowerShell from the repository root:
 
        Get-ChildItem -File -Filter *.md | Select-Object -ExpandProperty Name
 
-   Expect \`README.md\` plus the eight Phase 0 documentation files.
+   Expect `README.md` plus the eight Phase 0 documentation files.
 
 2. Confirm only the seven documentation files listed above changed in the
    Phase 0 r2 commit:
@@ -82,9 +82,9 @@ review the revert before applying it.
 
 ## Known limitations
 
-- The complete consumer set for \`window.ruinPlayer.getOffsetSec\` remains
+- The complete consumer set for `window.ruinPlayer.getOffsetSec` remains
   unverified. No call site was found in the shared frontend JS files inspected.
-- \`components.js\`, \`style.css\`, the complete relay internals, and the HLS path
+- `components.js`, `style.css`, the complete relay internals, and the HLS path
   were not exhaustively audited during Phase 0.
 - The active LAN address has not been confirmed by the operator.
 - No application issue was reproduced during this documentation-only revision.

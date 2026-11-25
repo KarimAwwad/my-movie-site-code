@@ -4,12 +4,12 @@ Newest first. One entry per accepted phase or documentation revision.
 
 ## [Phase 0] 2026-11-25 — documentation baseline — AWAITING OPERATOR REVIEW
 
-Added at repository root: \`PROJECT_CONTEXT.md\`, \`ARCHITECTURE.md\`,
-\`DEVELOPMENT_RULES.md\`, \`KNOWN_ISSUES.md\`, \`TEST_RESULTS.md\`,
-\`CHANGELOG.md\`, \`DEVELOPMENT_ROADMAP.md\`, and \`PATCH_NOTES.md\`.
+Added at repository root: `PROJECT_CONTEXT.md`, `ARCHITECTURE.md`,
+`DEVELOPMENT_RULES.md`, `KNOWN_ISSUES.md`, `TEST_RESULTS.md`,
+`CHANGELOG.md`, `DEVELOPMENT_ROADMAP.md`, and `PATCH_NOTES.md`.
 
-Seeded from a read-only inspection of \`movie site/\`, \`ruin-stream/\`, and
-\`ruintv server/\`. No application source file changed. Thirteen issues are
+Seeded from a read-only inspection of `movie site/`, `ruin-stream/`, and
+`ruintv server/`. No application source file changed. Thirteen issues are
 recorded: one S1 known wrong-association/security issue, and one S4 candidate.
 
 ### Observed baseline before this phase
@@ -40,5 +40,5 @@ baseline, and roadmap are now documented. No issue was fixed by documentation.
 
 ## [pre-Phase 0] — undocumented baseline
 
-\`library.py\` 1.2.5, \`grab.py\` 1.3.5, \`relay.py\`, \`worker.js\`, and static
+`library.py` 1.2.5, `grab.py` 1.3.5, `relay.py`, `worker.js`, and static
 frontend. No project changelog existed before Phase 0.

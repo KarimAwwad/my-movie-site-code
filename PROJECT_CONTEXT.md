@@ -20,11 +20,11 @@ Undocumented. No automated tests. Verification was manual and ad-hoc. This is
 the pre-documentation baseline, not a description of the repository after the
 Phase 0 documents were added.
 
-Evidence from \`ruintv server/server.log\` and \`library.log\`:
+Evidence from `ruintv server/server.log` and `library.log`:
 
-- Static server served \`/\`, \`/search\`, and \`/watch\` successfully.
+- Static server served `/`, `/search`, and `/watch` successfully.
 - Library daemon scanned 12 files, with 0 unmatched, in approximately 5 seconds.
-- \`library.log\` reports \`no TMDB_KEY\` on every start. Without a key, files
+- `library.log` reports `no TMDB_KEY` on every start. Without a key, files
   relying on IMDb lookup or title-and-year lookup cannot be matched; tagged
   files can still match. All 12 current library entries are tagged.
 - Supabase trickplay indexing and the Drive sprite pool are not configured on
@@ -32,8 +32,8 @@ Evidence from \`ruintv server/server.log\` and \`library.log\`:
 
 ## Current documented state
 
-Seven core project documents plus \`PATCH_NOTES.md\` are maintained at the
-repository root. \`KNOWN_ISSUES.md\` records 13 issues, including one S1 issue
+Seven core project documents plus `PATCH_NOTES.md` are maintained at the
+repository root. `KNOWN_ISSUES.md` records 13 issues, including one S1 issue
 and one unverified candidate. No application runtime behaviour changed during
 Phase 0.
 
@@ -41,36 +41,36 @@ Phase 0.
 
 | Component | Port | Entry point |
 |---|---:|---|
-| Static site | 80 (falls back to 8080) | \`ruintv server/server.py\` |
-| Provider relay | 8787 | \`ruin-stream/relay.py\` |
-| Library daemon | 8788 | \`ruintv server/library.py\` |
-| Grab daemon | 8789 | \`ruintv server/grab.py\` |
-| Worker (optional, Cloudflare) | n/a | \`ruin-stream/worker.js\` |
+| Static site | 80 (falls back to 8080) | `ruintv server/server.py` |
+| Provider relay | 8787 | `ruin-stream/relay.py` |
+| Library daemon | 8788 | `ruintv server/library.py` |
+| Grab daemon | 8789 | `ruintv server/grab.py` |
+| Worker (optional, Cloudflare) | n/a | `ruin-stream/worker.js` |
 
-Windows host. Site root is hardcoded in \`server.py\` to
-\`D:\\my development work\\unfinished and finished development projects\\movie site\`.
+Windows host. Site root is hardcoded in `server.py` to
+`D:\my development work\\unfinished and finished development projects\\movie site`.
 
 ## Config files and where they live
 
 | File | Holds | Notes |
 |---|---|---|
-| \`ruintv server/grab.json\` | library/staging roots, client mode, TMDB key | TMDB key is committed in plaintext |
-| \`ruin-stream/.env\` | Supabase URL and publishable key | Publishable key is intended for client use; verify database RLS policies |
-| \`ruin-stream/wrangler.toml\` | TMDB credential in \`[vars]\` | Treat private credentials as exposed |
-| \`ruin-stream/gdrive_accounts.json\` | Drive refresh tokens | Private credentials committed to the repository |
-| \`ruintv server/library_overrides.json\` | manual \`path -> tmdb\` pins | Does not exist yet; absence is allowed |
+| `ruintv server/grab.json` | library/staging roots, client mode, TMDB key | TMDB key is committed in plaintext |
+| `ruin-stream/.env` | Supabase URL and publishable key | Publishable key is intended for client use; verify database RLS policies |
+| `ruin-stream/wrangler.toml` | TMDB credential in `[vars]` | Treat private credentials as exposed |
+| `ruin-stream/gdrive_accounts.json` | Drive refresh tokens | Private credentials committed to the repository |
+| `ruintv server/library_overrides.json` | manual `path -> tmdb` pins | Does not exist yet; absence is allowed |
 
-\`library.py\` reads \`TMDB_KEY\` from its process environment, a \`.env\` file
-beside \`library.py\`, or \`config.json\` beside \`library.py\`. It does not read
-\`grab.json\` or \`ruin-stream/.env\`. This explains the repeated missing-key
-warning with the current configuration layout. \`grab.py\` reads its settings
-from \`grab.json\`.
+`library.py` reads `TMDB_KEY` from its process environment, a `.env` file
+beside `library.py`, or `config.json` beside `library.py`. It does not read
+`grab.json` or `ruin-stream/.env`. This explains the repeated missing-key
+warning with the current configuration layout. `grab.py` reads its settings
+from `grab.json`.
 
 ## Component versions
 
-- \`library.py\` 1.2.5
-- \`grab.py\` 1.3.5
-- \`relay.py\` / \`worker.js\` — unversioned
+- `library.py` 1.2.5
+- `grab.py` 1.3.5
+- `relay.py` / `worker.js` — unversioned
 
 ## Security note
 

@@ -9,12 +9,12 @@ test applies.**
 
 | Check | Result |
 |---|---|
-| Seven core documents and \`PATCH_NOTES.md\` exist at repository root | PASS — verified on \`main\` |
-| \`CHANGELOG.md\` is present and seeded | PASS — verified on \`main\` |
+| Seven core documents and `PATCH_NOTES.md` exist at repository root | PASS — verified on `main` |
+| `CHANGELOG.md` is present and seeded | PASS — verified on `main` |
 | No application source file modified in Phase 0 | PASS — documentation-only change |
 | Markdown tables and code spans render | PASS — manual review |
 | Cross-document references resolve to repository files | PASS — manual review |
-| Claims in \`KNOWN_ISSUES.md\` are tied to inspected source or explicitly marked unverified | PASS |
+| Claims in `KNOWN_ISSUES.md` are tied to inspected source or explicitly marked unverified | PASS |
 
 ### Revision log
 

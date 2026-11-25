@@ -5,7 +5,7 @@ revised; scope within an accepted phase may not grow.
 
 ## Phase 0 — documentation baseline (AWAITING OPERATOR REVIEW)
 
-Seven core documents plus \`PATCH_NOTES.md\` are present at repository root.
+Seven core documents plus `PATCH_NOTES.md` are present at repository root.
 Findings and baselines are recorded. No application source file changed.
 
 ## Phase 1 — harden local-file adoption (NEXT)
@@ -22,7 +22,7 @@ Exit: the known historical failure case is represented in a test, and current
 candidate handling is verified without claiming that the old incident has
 been reproduced by the current code.
 
-## Phase 2 — resolve the \`getOffsetSec\` API question
+## Phase 2 — resolve the `getOffsetSec` API question
 
 Goal: establish all consumers of the shared accessor, then decide whether the
 zero-valued stub is inert or causes a real integration mismatch. Do not change
@@ -48,7 +48,7 @@ media.
 ## Phase 6 — configuration decoupling
 
 Goal: establish one clear configuration source for shared settings; make
-\`SITE_DIR\` and CSP host configuration portable and explicit.
+`SITE_DIR` and CSP host configuration portable and explicit.
 
 ## Phase 7 — series-library foundations
 
