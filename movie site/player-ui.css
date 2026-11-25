@@ -428,76 +428,7 @@
 }
 
 #pl-servers {
-    min-width: 240px;
-}
-
-/* =====================================================================
-   SERVER ROWS
-   Each source is a row of [name + details] [chip]. Without these rules the
-   row is a block div and every child stacks, and the base button rule turns
-   each chip into a 40px circle.
-   ===================================================================== */
-.watch-frame .pl-controls .pl-server-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 0;
-}
-
-.watch-frame .pl-controls .pl-server-row .pl-opt {
-    flex: 1 1 auto;
-    display: block;
-    width: auto;
-    height: auto;
-    min-height: 32px;
-    padding: 7px 10px;
-    border-radius: 9px;
-    text-align: left;
-    background: #161616;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #ddd;
-    font: 600 12px 'Montserrat', sans-serif;
-    line-height: 1.35;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.watch-frame .pl-controls .pl-server-row .pl-opt:hover {
-    background: #1f1f1f;
-    color: #fff;
-}
-
-.watch-frame .pl-controls .pl-server-row .pl-opt.on {
-    border-color: var(--pl-red);
-    color: #fff;
-}
-
-.watch-frame .pl-controls .pl-mark {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: auto;
-    height: 32px;
-    padding: 0 8px;
-    border-radius: 8px;
-    background: #1c1c1c;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    color: #b9b9b9;
-    font: 700 10px 'Montserrat', sans-serif;
-    letter-spacing: 0.04em;
-}
-
-.watch-frame .pl-controls .pl-mark:hover {
-    background: #262626;
-    color: #fff;
-}
-
-.watch-frame .pl-controls .pl-mark.on {
-    background: var(--pl-red);
-    border-color: var(--pl-red);
-    color: #fff;
+    min-width: 210px;
 }
 
 @media (max-width: 800px) {
@@ -531,12 +462,6 @@
     .watch-frame .pl-menu {
         right: 8px;
         bottom: 62px;
-    }
-
-    .watch-frame .pl-controls .pl-mark {
-        height: 30px;
-        padding: 0 6px;
-        font-size: 9px;
     }
 }
 

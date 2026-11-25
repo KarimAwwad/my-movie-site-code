@@ -1,32 +1,82 @@
 relay listening on http://0.0.0.0:8787
-[05:35:29] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[02:36:33] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[02:42:47] 200 /subs
+[02:42:48] 200 /sub (54882 bytes)
+[02:42:52] 200 /subs
+[02:42:53] 200 /sub (59791 bytes)
+[04:42:30] 200 /subs
+[04:43:10] 200 /sub (68995 bytes)
+[04:43:14] 200 /subs
+[04:43:15] 200 /sub (61458 bytes)
+[06:42:14] 200 /subs
+[06:42:15] 200 /sub (64682 bytes)
+[06:42:18] 200 /subs
+[06:42:19] 200 /sub (76512 bytes)
 relay listening on http://0.0.0.0:8787
-[05:35:45] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[11:57:47] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[11:59:44] 200 /subs
+[11:59:48] 200 /sub (64682 bytes)
+[11:59:51] 200 /subs
+[11:59:53] 200 /sub (75809 bytes)
+[13:25:54] 502 /resolve
+[13:26:06] 502 /resolve
+[13:26:07] 502 /resolve
+[13:53:08] 200 /subs
+[13:53:09] 200 /sub (52833 bytes)
+[13:53:11] 200 /sub (50937 bytes)
+[13:53:14] 200 /subs
+[13:53:14] 200 /subs
+[13:53:15] 200 /sub (56729 bytes)
 relay listening on http://0.0.0.0:8787
-[05:42:22] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
-[05:45:17] 200 /health
+[14:23:57] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
 relay listening on http://0.0.0.0:8787
-[17:08:14] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[14:29:04] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[14:42:57] 200 /subs
+[14:42:58] 200 /sub (48845 bytes)
+[14:43:00] 200 /subs
+[14:43:01] 200 /sub (56729 bytes)
+[14:43:10] 200 /sub (58542 bytes)
+[14:43:10] 200 /subs
+[14:43:16] 200 /subs
 relay listening on http://0.0.0.0:8787
-[17:39:17] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[14:48:57] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
 relay listening on http://0.0.0.0:8787
-[17:51:54] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
-[17:52:00] 200 /health
+[14:56:42] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[15:06:22] 200 /subs
 relay listening on http://0.0.0.0:8787
-[18:50:35] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[16:51:29] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
 relay listening on http://0.0.0.0:8787
-[18:51:03] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[16:55:32] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
 relay listening on http://0.0.0.0:8787
-[06:26:30] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
-[06:26:36] 200 /health
-[06:26:39] job 603 vixsrc kept 1
-[06:26:40] resolve 603 -> 1 source(s), 1 verified, in 2.9s
-[06:26:40] 200 /resolve
-[06:26:40] job 603 vidsrc kept 2
-[06:26:59] 502 /resolve
-[06:34:57] 200 /health
-[06:34:59] job 603 vixsrc kept 1
-[06:35:00] resolve 603 -> 1 source(s), 1 verified, in 2.8s
-[06:35:00] 200 /resolve
-[06:35:00] job 603 vidsrc kept 2
-[06:35:19] 502 /resolve
+[03:29:15] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[04:14:50] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[04:31:53] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[04:37:58] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[04:50:33] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[11:37:19] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[11:58:57] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+[12:06:56] 200 /subs
+relay listening on http://0.0.0.0:8787
+[19:16:15] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[19:37:34] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[19:44:24] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[19:49:59] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[20:17:15] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[20:47:10] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[21:17:16] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[08:01:51] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log
+relay listening on http://0.0.0.0:8787
+[16:08:32] relay up on port 8787, log at D:\my development work\unfinished and finished development projects\ruin-stream\relay.log

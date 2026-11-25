@@ -1,108 +1,14 @@
-05:35:32 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-05:35:32 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-05:35:32 grab 1.9.1 on http://0.0.0.0:8789 mode=fdm
-05:35:32 listening on every interface
-05:35:32 library D:\movies\library
-05:35:32 staging D:\movies\staging
-05:35:32 watch depth 3
-05:35:32 stale hand-off limit 120 min
-05:35:32 cam retry 12 h
-05:35:32 min seeds 3
-05:35:32 skips 2
-05:35:32 watching D:\movies\staging
-05:35:51 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-05:35:51 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-05:35:51 grab 1.9.1 on http://0.0.0.0:8789 mode=fdm
-05:35:51 listening on every interface
-05:35:51 library D:\movies\library
-05:35:51 staging D:\movies\staging
-05:35:51 watch depth 3
-05:35:51 stale hand-off limit 120 min
-05:35:51 cam retry 12 h
-05:35:51 min seeds 3
-05:35:51 skips 2
-05:35:51 watching D:\movies\staging
-05:42:28 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-05:42:28 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-05:42:28 grab 1.9.1 on http://0.0.0.0:8789 mode=fdm
-05:42:28 listening on every interface
-05:42:28 library D:\movies\library
-05:42:28 staging D:\movies\staging
-05:42:28 watch depth 3
-05:42:28 stale hand-off limit 120 min
-05:42:28 cam retry 12 h
-05:42:28 min seeds 3
-05:42:28 skips 2
-05:42:28 watching D:\movies\staging
-17:08:21 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-17:08:22 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-17:08:22 grab 1.9.1 on http://0.0.0.0:8789 mode=fdm
-17:08:22 listening on every interface
-17:08:22 library D:\movies\library
-17:08:22 staging D:\movies\staging
-17:08:22 watch depth 3
-17:08:22 stale hand-off limit 120 min
-17:08:22 cam retry 12 h
-17:08:22 min seeds 3
-17:08:22 skips 2
-17:08:22 watching D:\movies\staging
-17:39:23 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-17:39:23 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-17:39:23 grab 1.9.1 on http://0.0.0.0:8789 mode=fdm
-17:39:23 listening on every interface
-17:39:23 library D:\movies\library
-17:39:23 staging D:\movies\staging
-17:39:23 watch depth 3
-17:39:23 stale hand-off limit 120 min
-17:39:23 cam retry 12 h
-17:39:23 min seeds 3
-17:39:23 skips 2
-17:39:23 watching D:\movies\staging
-17:51:59 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-17:51:59 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-17:51:59 grab 1.9.2 on http://0.0.0.0:8789 mode=fdm
-17:51:59 listening on every interface
-17:51:59 library D:\movies\library
-17:51:59 staging D:\movies\staging
-17:51:59 watch depth 3
-17:51:59 stale hand-off limit 120 min
-17:51:59 cam retry 12 h
-17:51:59 min seeds 3
-17:51:59 skips 2
-17:51:59 watching D:\movies\staging
-18:50:40 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-18:50:40 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-18:50:40 grab 1.9.3 on http://0.0.0.0:8789 mode=fdm
-18:50:40 listening on every interface
-18:50:40 library D:\movies\library
-18:50:40 staging D:\movies\staging
-18:50:40 watch depth 3
-18:50:40 stale hand-off limit 120 min
-18:50:40 cam retry 12 h
-18:50:40 min seeds 3
-18:50:40 skips 2
-18:50:40 watching D:\movies\staging
-18:51:08 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-18:51:08 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-18:51:09 grab 1.9.3 on http://0.0.0.0:8789 mode=fdm
-18:51:09 listening on every interface
-18:51:09 library D:\movies\library
-18:51:09 staging D:\movies\staging
-18:51:09 watch depth 3
-18:51:09 stale hand-off limit 120 min
-18:51:09 cam retry 12 h
-18:51:09 min seeds 3
-18:51:09 skips 2
-18:51:09 watching D:\movies\staging
-06:26:35 provider rung on, ffmpeg D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe
-06:26:35 audio language proof on, whisper D:\my development work\development tools\ffmpeg\bin\whisper-cli.exe, up to 5x30s windows, agree>=2, max 4 track(s), 3 probed
-06:26:35 grab 1.9.3 on http://0.0.0.0:8789 mode=fdm
-06:26:35 listening on every interface
-06:26:35 library D:\movies\library
-06:26:35 staging D:\movies\staging
-06:26:35 watch depth 3
-06:26:35 stale hand-off limit 120 min
-06:26:35 cam retry 12 h
-06:26:35 min seeds 3
-06:26:35 skips 2
-06:26:35 watching D:\movies\staging
+08:01:56 grab 1.3.5 on http://0.0.0.0:8789 mode=fdm
+08:01:56 listening on every interface
+08:01:56 library D:\movies\library
+08:01:56 staging D:\movies\staging
+08:01:56 watch depth 3
+08:01:56 watching D:\movies\staging
+08:02:02 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+08:02:11 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+16:08:36 grab 1.3.5 on http://0.0.0.0:8789 mode=fdm
+16:08:36 listening on every interface
+16:08:36 library D:\movies\library
+16:08:36 staging D:\movies\staging
+16:08:36 watch depth 3
+16:08:36 watching D:\movies\staging

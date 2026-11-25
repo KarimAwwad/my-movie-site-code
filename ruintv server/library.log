@@ -1,60 +1,14 @@
-05:35:31 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
-05:35:31 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-05:35:31 drive pool: none (sprites stay local)
-05:35:32 scan: 13 file(s) matched, 0 unmatched
-05:35:33 library 1.2.5 on http://0.0.0.0:8788
-05:35:33 root D:\movies\library
-05:35:33 cache D:\movies\cache
-05:35:48 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
-05:35:48 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-05:35:48 drive pool: none (sprites stay local)
-05:35:50 scan: 13 file(s) matched, 0 unmatched
-05:35:50 library 1.2.5 on http://0.0.0.0:8788
-05:35:50 root D:\movies\library
-05:35:50 cache D:\movies\cache
-05:42:25 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
-05:42:25 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-05:42:25 drive pool: none (sprites stay local)
-05:42:26 scan: 13 file(s) matched, 0 unmatched
-05:42:26 library 1.2.5 on http://0.0.0.0:8788
-05:42:26 root D:\movies\library
-05:42:26 cache D:\movies\cache
-17:08:16 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
-17:08:16 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-17:08:16 drive pool: none (sprites stay local)
-17:08:24 scan: 13 file(s) matched, 0 unmatched
-17:08:24 library 1.2.5 on http://0.0.0.0:8788
-17:08:24 root D:\movies\library
-17:08:24 cache D:\movies\cache
-17:39:20 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
-17:39:20 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-17:39:20 drive pool: none (sprites stay local)
-17:39:24 scan: 13 file(s) matched, 0 unmatched
-17:39:24 library 1.2.5 on http://0.0.0.0:8788
-17:39:24 root D:\movies\library
-17:39:24 cache D:\movies\cache
-17:51:56 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
-17:51:56 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-17:51:56 drive pool: none (sprites stay local)
-17:51:57 scan: 13 file(s) matched, 0 unmatched
-17:51:57 library 1.2.5 on http://0.0.0.0:8788
-17:51:57 root D:\movies\library
-17:51:57 cache D:\movies\cache
-18:50:37 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-18:50:37 drive pool: none (sprites stay local)
-18:50:41 scan: 12 file(s) matched, 0 unmatched
-18:50:41 library 1.2.6 on http://0.0.0.0:8788
-18:50:41 root D:\movies\library
-18:50:41 cache D:\movies\cache
-18:51:06 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-18:51:06 drive pool: none (sprites stay local)
-18:51:07 scan: 12 file(s) matched, 0 unmatched
-18:51:07 library 1.2.6 on http://0.0.0.0:8788
-18:51:07 root D:\movies\library
-18:51:07 cache D:\movies\cache
-06:26:32 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
-06:26:32 drive pool: none (sprites stay local)
-06:26:36 scan: 12 file(s) matched, 0 unmatched
-06:26:36 library 1.2.6 on http://0.0.0.0:8788
-06:26:36 root D:\movies\library
-06:26:36 cache D:\movies\cache
+08:01:53 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
+08:01:53 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
+08:01:53 drive pool: D:\my development work\unfinished and finished development projects\ruin-stream\gdrive_accounts.json
+08:01:56 scan: 12 file(s) matched, 0 unmatched
+08:01:56 library 1.2.5 on http://0.0.0.0:8788
+08:01:56 root D:\movies\library
+08:01:56 cache D:\movies\cache
+16:08:33 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
+16:08:33 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
+16:08:33 drive pool: D:\my development work\unfinished and finished development projects\ruin-stream\gdrive_accounts.json
+16:08:38 scan: 12 file(s) matched, 0 unmatched
+16:08:38 library 1.2.5 on http://0.0.0.0:8788
+16:08:38 root D:\movies\library
+16:08:38 cache D:\movies\cache

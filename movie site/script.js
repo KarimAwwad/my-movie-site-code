@@ -3377,18 +3377,15 @@ function missElapsed() {
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')} elapsed`;
 }
 
-// The fetch itself: overlay first, then a non-forced grab, then the queue is watched.
-// A page load does not force: an existing row (queued, cancelled, failed, skipped) is reported as it stands,
-// and only "Try again" asks grab to re-decide. Without that, every reload re-ran the whole provider sweep.
-async function beginFetch(force = false) {
+// The fetch itself: overlay first, then the grab button player-ui.js owns is clicked for us, then the queue is watched.
+async function beginFetch() {
     if (miss.busy || !playerMovie) return;
     miss.busy = true;
-    miss.polls = 0;
     miss.began = Date.now();
     missClearTimers();
     missPaint({
         kicker: 'Not in your library',
-        line: force ? 'Looking again…' : 'Fetching a copy…',
+        line: 'Fetching a copy…',
         sub: 'It downloads once and stays on your drive. Nothing here can expire.',
         bar: null,
         timer: missElapsed(),
@@ -3397,19 +3394,12 @@ async function beginFetch(force = false) {
         if (miss.el) setIf(miss.el.timer, missElapsed());
     }, 1000);
 
-    try {
-        const res = await fetch(`${GRAB_API}/grab`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({tmdb: Number(playerMovie.id), force: force ? 1 : 0}),
-        });
-        const job = await res.json().catch(() => ({}));
-        if (!res.ok) return missFailed(job.error || `The grab daemon answered ${res.status}.`);
-        miss.job = job;
-        if (job.id) pollFetch();
-    } catch (err) {
-        missFailed('The grab daemon did not answer. Is it running?');
-    }
+    // reuse the single grab implementation instead of duplicating it: build the hidden menu, click its button
+    window.buildServerMenu?.();
+    await new Promise(r => setTimeout(r, 0));
+    const btn = pel('pl-grab-btn');
+    if (btn) btn.click();
+    pollFetch();
 }
 
 async function pollFetch() {
@@ -3417,9 +3407,7 @@ async function pollFetch() {
     if (!playerMovie || !miss.busy) return;
     let job = null;
     try {
-        // all=1: the queue hides finished rows, and a job that ends has to stay findable or the
-        // end states below are never reached and this polls an empty list until it gives up
-        const res = await fetch(`${GRAB_API}/queue?all=1`);
+        const res = await fetch(`${GRAB_API}/queue`);
         const list = await res.json();
         job = (Array.isArray(list) ? list : [])
             .filter(j => Number(j.tmdb) === Number(playerMovie.id))
@@ -3436,22 +3424,14 @@ async function pollFetch() {
     miss.job = job;
     const pct = job.progress_pct || 0;
 
-    if (job.state === 'done' || job.state === 'present') {
+    if (job.state === 'done') {
         miss.busy = false;
         missClearTimers();
         missPaint({kicker: 'Filed', line: 'Starting…', sub: '', bar: 100, timer: false, spinner: false, done: true});
         setTimeout(() => resolveStreams(0, 'auto'), 800);
         return;
     }
-    // queued is a finished answer, not a step: nothing proved itself, so nothing will change until asked
-    if (job.state === 'queued') {
-        return missFailed('Every candidate was rejected. Nothing is proven for this title yet.', 'Nothing proven yet.');
-    }
-    // skipped is the same shape: grab answered at once and started no sweep
-    if (job.state === 'skipped') {
-        return missFailed('Skipped. Try again to search anyway.', 'Skipped.');
-    }
-    if (job.state === 'failed' || job.state === 'cancelled' || job.state === 'wrong') {
+    if (job.state === 'failed' || job.state === 'cancelled') {
         return missFailed(job.error || (job.state === 'cancelled' ? 'Cancelled.' : 'The download failed.'));
     }
 
@@ -3479,17 +3459,17 @@ async function pollFetch() {
     miss.poll = setTimeout(pollFetch, 2000);
 }
 
-function missFailed(reason, line = 'The fetch did not work.') {
+function missFailed(reason) {
     miss.busy = false;
     missClearTimers();
     missPaint({
         kicker: 'Not in your library',
-        line,
+        line: 'The fetch did not work.',
         sub: reason || 'Nothing came back.',
         bar: false,
         timer: false,
         buttons: [
-            ['Try again', true, () => beginFetch(true)],
+            ['Try again', true, () => beginFetch()],
             ['Search providers', false, () => searchProviders()],
             ['Rescan library', false, rescanLibrary],
         ],
@@ -3664,7 +3644,6 @@ function fillSourceMenu() {
         manualPick = true;
         playSource(Number(sel.value));
     };
-    if (typeof buildServerMenu === 'function') buildServerMenu();
 }
 
 // Drops any <track> element (embedded or external) and its blob. player-ui.js owns the external ones, but
@@ -3727,7 +3706,6 @@ async function playSource(i) {
     const src = streamSources[i];
     const sel = pel('server-switcher');
     if (sel) sel.value = String(i);
-    if (typeof buildServerMenu === 'function') buildServerMenu();
 
     hideMiss();
     pToast(`Trying ${src.label}…`);
@@ -3766,9 +3744,9 @@ async function playSource(i) {
     // A progressive MP4 (the library's browser-safe files, and vidlink) is not an HLS playlist:
     // hls.js would fail to parse it, so feed the element directly.
     if (src.kind === 'mp4') {
-        v.src = src.url;
         addNativeSubs(src.subtitles);
         if (typeof buildSubtitleMenu === 'function') buildSubtitleMenu();
+        v.src = src.url;
         v.play().catch(() => {
         });
         return;
@@ -3777,9 +3755,9 @@ async function playSource(i) {
     // hls.js first, always. Chrome answers canPlayType() with "maybe", so the native branch would win by mistake
     // and never build a player. Native is only used where hls.js genuinely cannot run (iOS Safari).
     if (typeof Hls === 'undefined' || !Hls.isSupported()) {
-        v.src = src.url;
         addNativeSubs(src.subtitles);
         if (typeof buildSubtitleMenu === 'function') buildSubtitleMenu();
+        v.src = src.url;
         v.play().catch(() => {
         });
         return;
@@ -5047,7 +5025,7 @@ async function initSeries() {
     const idText = q.get('id') || '';
     if (!/^\d{1,9}$/.test(idText)) return seriesFail('That link does not point to a series.');
     const id = Number(idText);
-    SK.fill('series-similar-row', 8);
+    SK.fill('similar-row', 8);
 
     let d;
     try {
@@ -5146,7 +5124,7 @@ async function initSeries() {
 
     // more like this
     const similar = (d.similar?.results || []).filter(m => m.poster_path).map(slimTv);
-    if (similar.length) renderRow(similar, 'series-similar-row');
+    if (similar.length) renderRow(similar, 'similar-row');
     else document.getElementById('series-similar-box').hidden = true;
 }
 

@@ -6,9 +6,9 @@ Scans a folder, matches each video to a TMDB id, and serves it. Nothing here tou
 the live site; the site asks this daemon and falls back to providers when it has nothing.
 
 Two serving paths:
-- a browser-safe file (mp4/webm, h264/vp8/vp9/av1, aac/mp3/opus/vorbis) is byte-streamed
+  * a browser-safe file (mp4/webm, h264/vp8/vp9/av1, aac/mp3/opus/vorbis) is byte-streamed
     with HTTP Range, straight from disk
-- anything else (mkv, HEVC, AC3, DTS) is remuxed ONCE by ffmpeg into fMP4 HLS in a cache
+  * anything else (mkv, HEVC, AC3, DTS) is remuxed ONCE by ffmpeg into fMP4 HLS in a cache
     folder, then served as a playlist
 
 Matching, in order: a [tmdb-123] tag, an IMDb id (tt1234567), or a TMDB title+year search.
@@ -55,7 +55,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.2.6"
+VERSION = "1.2.5"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ruin-library/" + VERSION
 
 VIDEO_EXT = {".mp4", ".m4v", ".mkv", ".webm", ".avi", ".mov", ".ts", ".m2ts", ".mpg", ".mpeg"}
@@ -100,14 +100,13 @@ GDRIVE_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
 
 ROOT = Path(".")
 CACHE = Path("library_cache")
-OVERRIDES_PATH = Path(__file__).with_name("library_overrides.json")
-INDEX_PATH = Path(__file__).with_name("library.json")
+OVERRIDES_PATH = Path("library_overrides.json")
+INDEX_PATH = Path("library.json")
 
 LIB: dict[str, list[dict]] = {}
 UNMATCHED: list[dict] = []
 OVERRIDES: dict[str, int] = {}
 LIB_LOCK = threading.Lock()
-SCAN_LOCK = threading.Lock()
 BUILDS: dict[str, threading.Event] = {}
 BUILDS_LOCK = threading.Lock()
 TRICKS: dict[str, dict] = {}
@@ -123,58 +122,36 @@ def log(msg: str) -> None:
     print(time.strftime("%H:%M:%S"), msg, flush=True)
 
 
-def http_json(url: str, timeout: int = 20, headers: dict | None = None):
-    h = {"User-Agent": UA, "Accept": "application/json"}
-    if headers:
-        h.update(headers)
-    req = urllib.request.Request(url, headers=h)
+def http_json(url: str, timeout: int = 20):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8", "replace"))
 
 
-def tmdb_json(path: str, timeout: int = 20):
-    if not TMDB_KEY:
-        return {}
-    url = f"https://api.themoviedb.org/3{path}"
-    headers = {}
-    if len(TMDB_KEY) > 60 or TMDB_KEY.startswith("eyJ"):
-        headers["Authorization"] = f"Bearer {TMDB_KEY}"
-    else:
-        sep = "&" if "?" in url else "?"
-        url += f"{sep}api_key={urllib.parse.quote(TMDB_KEY, safe='')}"
-    return http_json(url, timeout=timeout, headers=headers)
-
-
 def config_value(key: str) -> str:
-    """Look a key up in the environment, then .env, config.json, or grab.json."""
+    """Look a key up in the environment, then .env, then config.json."""
     val = os.environ.get(key, "").strip()
     if val:
         return val
-    candidates = [key, key.lower()]
-    for name in (".env", "config.json", "grab.json"):
+    for name in (".env", "config.json"):
         p = Path(__file__).parent / name
         if not p.exists():
             continue
         try:
-            text = p.read_text(encoding="utf-8-sig")
+            text = p.read_text(encoding="utf-8")
         except OSError:
             continue
         if name.endswith(".json"):
             try:
-                data = json.loads(text)
-                if isinstance(data, dict):
-                    for k in candidates:
-                        got = str(data.get(k) or "").strip()
-                        if got:
-                            return got
+                got = str(json.loads(text).get(key) or "").strip()
+                if got:
+                    return got
             except ValueError:
                 pass
         else:
             for line in text.splitlines():
-                stripped = line.strip()
-                for k in candidates:
-                    if stripped.startswith(k + "="):
-                        return stripped.split("=", 1)[1].strip().strip('"').strip("'")
+                if line.strip().startswith(key + "="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
     return ""
 
 
@@ -183,11 +160,8 @@ def tmdb_key() -> str:
 
 
 def find_ffmpeg() -> tuple[str, str]:
-    ff_dir = config_value("ffmpeg_dir")
-    exe_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
     candidates = [
         os.environ.get("FFMPEG_BIN", ""),
-        os.path.join(ff_dir, exe_name) if ff_dir else "",
         r"D:\my development work\development tools\ffmpeg\bin\ffmpeg.exe",
         "ffmpeg",
     ]
@@ -213,10 +187,6 @@ def find_ffmpeg() -> tuple[str, str]:
 # --------------------------------------------------------------------------- #
 # matching
 # --------------------------------------------------------------------------- #
-
-def _norm_title(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
-
 
 def clean_title(name: str) -> str:
     stem = Path(name).stem
@@ -246,7 +216,10 @@ def match_file(path: Path) -> int | None:
     m = IMDB_TAG.search(name)
     if m and TMDB_KEY:
         try:
-            data = tmdb_json(f"/find/{m.group(1)}?external_source=imdb_id")
+            data = http_json(
+                f"https://api.themoviedb.org/3/find/{m.group(1)}"
+                f"?api_key={TMDB_KEY}&external_source=imdb_id"
+            )
             hits = data.get("movie_results") or []
             if hits:
                 return int(hits[0]["id"])
@@ -256,24 +229,24 @@ def match_file(path: Path) -> int | None:
     if not TMDB_KEY:
         return None
     title = clean_title(name)
-    want_norm = _norm_title(title)
-    if len(want_norm) < 2:
+    if len(title) < 2:
         return None
     year = year_of(name)
     try:
-        q = urllib.parse.urlencode({"query": title, **({"year": year} if year else {})})
-        data = tmdb_json(f"/search/movie?{q}")
+        q = urllib.parse.urlencode({"api_key": TMDB_KEY, "query": title, **({"year": year} if year else {})})
+        data = http_json(f"https://api.themoviedb.org/3/search/movie?{q}")
         hits = data.get("results") or []
     except Exception as e:
         log(f"search {title!r}: {e}")
         return None
-    for hit in hits:
-        if year and (hit.get("release_date") or "")[:4] != year:
-            continue
-        cand_titles = {_norm_title(hit.get("title") or ""), _norm_title(hit.get("original_title") or "")}
-        if want_norm in cand_titles:
-            return int(hit["id"])
-    return None
+    if not hits:
+        return None
+    first = hits[0]
+    if year and (first.get("release_date") or "")[:4] != year:
+        return None
+    if (first.get("title") or "").strip().lower() != title.lower():
+        return None
+    return int(first["id"])
 
 
 def probe(path: Path) -> tuple[bool, int, int]:
@@ -308,71 +281,64 @@ def probe(path: Path) -> tuple[bool, int, int]:
 def sidecar_subs(path: Path) -> list[dict]:
     out = []
     try:
-        entries = sorted(path.parent.iterdir())
+        entries = list(path.parent.iterdir())
     except OSError:
         return out
-    prefix = path.stem + "."
     for cand in entries:
         if not cand.is_file() or cand.suffix.lower() not in SUB_EXT:
             continue
-        if cand.stem == path.stem:
-            lang = "und"
-        elif cand.stem.startswith(prefix):
-            tag = cand.stem[len(prefix):].strip()
-            m = re.fullmatch(r"([a-z]{2,3})(?:[-_][a-z0-9]{2,4})?", tag, re.I)
-            if not m:
-                continue
-            lang = m.group(1).lower()
-        else:
+        if cand.stem != path.stem:
             continue
+        lang = "und"
+        m = re.search(r"\.([a-z]{2,3})$", cand.stem)
+        if m and cand.stem.lower().endswith(m.group(0)) and len(cand.stem) > len(path.stem):
+            lang = m.group(1)
         out.append({"path": cand, "lang": lang, "label": lang.upper()})
     return out
 
 
 def scan() -> None:
-    global UNMATCHED, OVERRIDES
-    with SCAN_LOCK:
-        if not ROOT.exists():
-            log(f"root missing: {ROOT}")
-            return
-        OVERRIDES = load_overrides()
-        lib: dict[str, list[dict]] = {}
-        unmatched: list[dict] = []
-        for path in sorted(ROOT.rglob("*")):
-            if not path.is_file() or path.suffix.lower() not in VIDEO_EXT:
-                continue
-            if CACHE.resolve() in path.resolve().parents:
-                continue
-            tmdb = match_file(path)
-            if not tmdb:
-                unmatched.append({"file": str(path.relative_to(ROOT)), "title": clean_title(path.name)})
-                continue
-            direct, height, seconds = probe(path)
-            try:
-                stat = path.stat()
-            except OSError:
-                continue
-            lib.setdefault(str(tmdb), []).append({
-                "path": path,
-                "direct": direct,
-                "height": height,
-                "seconds": seconds,
-                "subs": sidecar_subs(path),
-                "mtime": stat.st_mtime,
-                "size": stat.st_size,
-            })
-        with LIB_LOCK:
-            LIB.clear()
-            LIB.update(lib)
-            UNMATCHED = unmatched
-        total = sum(len(v) for v in lib.values())
-        log(f"scan: {total} file(s) matched, {len(unmatched)} unmatched")
+    global UNMATCHED
+    if not ROOT.exists():
+        log(f"root missing: {ROOT}")
+        return
+    lib: dict[str, list[dict]] = {}
+    unmatched: list[dict] = []
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in VIDEO_EXT:
+            continue
+        if CACHE.resolve() in path.resolve().parents:
+            continue
+        tmdb = match_file(path)
+        if not tmdb:
+            unmatched.append({"file": str(path.relative_to(ROOT)), "title": clean_title(path.name)})
+            continue
+        direct, height, seconds = probe(path)
         try:
-            INDEX_PATH.write_text(json.dumps(
-                {k: [{"file": str(e["path"].relative_to(ROOT)), "direct": e["direct"]} for e in v]
-                 for k, v in lib.items()}, indent=1), encoding="utf-8")
+            stat = path.stat()
         except OSError:
-            pass
+            continue
+        lib.setdefault(str(tmdb), []).append({
+            "path": path,
+            "direct": direct,
+            "height": height,
+            "seconds": seconds,
+            "subs": sidecar_subs(path),
+            "mtime": stat.st_mtime,
+            "size": stat.st_size,
+        })
+    with LIB_LOCK:
+        LIB.clear()
+        LIB.update(lib)
+        UNMATCHED = unmatched
+    total = sum(len(v) for v in lib.values())
+    log(f"scan: {total} file(s) matched, {len(unmatched)} unmatched")
+    try:
+        INDEX_PATH.write_text(json.dumps(
+            {k: [{"file": str(e["path"].relative_to(ROOT)), "direct": e["direct"]} for e in v]
+             for k, v in lib.items()}, indent=1), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def scan_soon() -> None:
@@ -752,9 +718,8 @@ def trick_build(key: str, src: Path, seconds: int, tmdb: str) -> None:
     out.mkdir(parents=True, exist_ok=True)
     vtt = out / "thumbs.vtt"
     if vtt.exists():
-        frames = vtt.read_text(encoding="utf-8", errors="replace").count("-->")
         with TRICKS_LOCK:
-            TRICKS[key] = {"state": "ready", "frames": frames}
+            TRICKS[key] = {"state": "ready"}
         return
     if not FFMPEG:
         with TRICKS_LOCK:
@@ -849,7 +814,7 @@ def trick_status(tmdb: str, entry: dict) -> dict:
 
     vtt = CACHE / key / "thumbs" / "thumbs.vtt"
     if vtt.exists():
-        frames = vtt.read_text(encoding="utf-8", errors="replace").count("-->")
+        frames = len(list((CACHE / key / "thumbs").glob("s*.webp"))) * TRICK_COLS * TRICK_ROWS
         with TRICKS_LOCK:
             TRICKS[key] = {"state": "ready", "frames": frames}
         return {"state": "ready", "building": False, "frames": frames, "error": ""}
@@ -1092,16 +1057,14 @@ class Handler(BaseHTTPRequestHandler):
                                   extra={"Retry-After": "5"})
             name = parts[3] if len(parts) > 3 else "master.m3u8"
             if name == "master.m3u8":
-                # If requested as /stream/<tmdb>/<i> (no trailing slash or filename), relative URLs
-                # resolve against /stream/<tmdb>/, so prefix with <i>/; if requested as
-                # /stream/<tmdb>/<i>/master.m3u8 or /stream/<tmdb>/<i>/, index.m3u8 is already relative.
+                # The child line in the file is a bare "index.m3u8". Rewrite it to carry the file index, so the
+                # variant is fetched at /stream/<tmdb>/<i>/index.m3u8 and the index survives into every segment URL.
                 text = (out / "master.m3u8").read_text(encoding="utf-8")
-                if len(parts) == 3 and not u.path.endswith("/"):
-                    text = re.sub(r"(?m)^index\.m3u8\s*$", f"{parts[2]}/index.m3u8", text)
+                text = re.sub(r"(?m)^index\.m3u8\s*$", f"{parts[2]}/index.m3u8", text)
                 return self._send(200, text, "application/vnd.apple.mpegurl",
                                   extra={"Cache-Control": "no-store"})
-            target = (out / name).resolve()
-            if target.parent != out.resolve() or not target.is_file():
+            target = out / name
+            if not target.exists():
                 return self._send(404, json.dumps({"error": "not ready"}))
             ctype = ("application/vnd.apple.mpegurl" if name.endswith(".m3u8")
                      else "video/mp4" if name.endswith(".mp4") else "video/iso.segment")
@@ -1111,10 +1074,6 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts) == 3 and parts[0] == "trick":
             tmdb, name = parts[1], parts[2]
             key = LAST_TRICK.get(tmdb)
-            if not key:
-                items, entry = self._lookup(tmdb, "0")
-                if entry:
-                    key = cache_key(entry["path"], entry["mtime"], entry["size"])
             if not key:
                 return self._send(404, json.dumps({"error": "no trick job"}))
             # a cue sheet published to Drive is held in memory; only the sheets come off disk
@@ -1160,8 +1119,6 @@ class Handler(BaseHTTPRequestHandler):
                 sub = entry["subs"][int(parts[3].split(".")[0])]
             except (ValueError, IndexError):
                 return self._send(404, json.dumps({"error": "no such subtitle"}))
-            if not sub["path"].is_file():
-                return self._send(404, json.dumps({"error": "subtitle file gone"}))
             return self._send(200, to_vtt(sub["path"]), "text/vtt; charset=utf-8")
 
         self._send(404, json.dumps({"error": "not found"}))
@@ -1172,8 +1129,6 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             forget(path)                      # deleted behind our back: drop the row and answer 404
             return self._send(404, json.dumps({"error": "file gone"}))
-        if size <= 0:
-            return self._send(404, json.dumps({"error": "empty file"}))
         # a large send stays open for as long as the player is playing. If the browser's buffer is full
         # the write blocks; without a generous timeout that block raised socket.timeout and 500'd mid-film.
         try:
@@ -1192,10 +1147,7 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     start = int(a)
                     end = int(b) if b else size - 1
-                if start < 0 or start >= size:
-                    return self._send(416, b"", "application/octet-stream",
-                                      extra={"Content-Range": f"bytes */{size}"})
-                end = min(end, size - 1)
+                start, end = max(0, start), min(end, size - 1)
                 if start > end:
                     raise ValueError
                 status = 206
@@ -1232,7 +1184,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 class Server(ThreadingHTTPServer):
-    allow_reuse_address = os.name != "nt"
     daemon_threads = True
 
     def handle_error(self, request, client_address):
@@ -1244,16 +1195,8 @@ class Server(ThreadingHTTPServer):
 
 def load_overrides() -> dict[str, int]:
     try:
-        data = json.loads(OVERRIDES_PATH.read_text(encoding="utf-8-sig"))
-        if not isinstance(data, dict):
-            return {}
-        out: dict[str, int] = {}
-        for k, v in data.items():
-            try:
-                out[str(k).replace("\\", "/")] = int(v)
-            except (TypeError, ValueError):
-                continue
-        return out
+        data = json.loads(OVERRIDES_PATH.read_text(encoding="utf-8"))
+        return {k: int(v) for k, v in data.items()} if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
 
@@ -1273,7 +1216,7 @@ def main() -> None:
     FFMPEG, FFPROBE = (args.ffmpeg, "") if args.ffmpeg else find_ffmpeg()
     if args.ffmpeg:
         base = os.path.dirname(args.ffmpeg)
-        p = os.path.join(base, "ffprobe.exe" if os.name == "nt" else "ffprobe")
+        p = os.path.join(base, "ffprobe.exe")
         FFPROBE = p if os.path.isfile(p) else ""
     TMDB_KEY = tmdb_key()
     OVERRIDES = load_overrides()
@@ -1281,7 +1224,7 @@ def main() -> None:
     if not ROOT.is_dir():
         raise SystemExit(f"library: root missing: {ROOT}")
     if not TMDB_KEY:
-        log("warning: no TMDB_KEY (env, .env, config.json, or grab.json) — only tagged files will match")
+        log("warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match")
     if not FFMPEG:
         log("warning: ffmpeg not found — only direct-playable files will work")
     sb_url, sb_key = supabase_cfg()

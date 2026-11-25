@@ -8,8 +8,6 @@
 
 const T = {};
 
-const escAttr = s => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
 // Small outline icons. Drawn as SVG (not emoji) so CSS can FILL them when active: a heart that turns red, a bookmark that turns gold.
 const ICONS = {
     heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>',
@@ -49,8 +47,6 @@ const NETWORKS = [
     {key: 'marvel', name: 'Marvel Studios', company: '420', logoId: '420'},
     {key: 'dc', name: 'DC Entertainment', company: '9993|128064', logoId: '9993'}
 ];
-// the home page opens on the first network, so the heading and its "See all" are derived rather than written out
-const FIRST_NETWORK = NETWORKS[0];
 
 // Line icons for genres and section banners. Drawn as SVG (not emoji) so every device shows the same clean picture, and CSS
 // can colour them. Used inside the genre cards, the Genres menu, the mobile genre sheet and the home page banners.
@@ -240,10 +236,6 @@ T.tabbar = () => {
 // ---------------------------------------------------------------- filter toolbar (category pages)
 // Everything the toolbar offers is DATA in the lists below, so adding a country or a genre is a one-line change.
 const THIS_YEAR = new Date().getFullYear();
-// the year pills are rebuilt per render, because a tab left open over New Year would otherwise offer last year's list
-const yearPills = () => [['', 'All'],
-    ...Array.from({length: 5}, (_, i) => { const y = String(new Date().getFullYear() - i); return [y, y]; }),
-    ['older', 'Older']];
 
 // Genres: [key, label, TMDB movie id, TMDB tv id, label when TV is selected]
 // TMDB uses different genre ids for movies and TV, and some genres exist for only one of them (null = does not exist).
@@ -304,7 +296,6 @@ const REGIONS = [
 
 // Each filter: how it looks. multi = several pills can be on at once. toggle = clicking an active pill turns it off.
 // align 'right' makes the popover open leftwards, so it never runs off the edge of the screen.
-// pills may be a function when the list has to be built fresh on every render (see year).
 const FILTER_DEFS = {
     type: {title: 'Type', id: 'popover-type', pills: [['movie', 'Movie'], ['tv', 'Series']]},
     genre: {
@@ -314,7 +305,12 @@ const FILTER_DEFS = {
     country: {title: 'Country', id: 'popover-country', toggle: true, large: true, align: 'right', pills: COUNTRIES},
     // only shown on streaming-service pages (see .provider-only in style.css)
     region: {title: 'Region', id: 'popover-region', large: true, providerOnly: true, pills: REGIONS},
-    year: {title: 'Released', id: 'popover-year', align: 'right', pills: yearPills},
+    year: {
+        title: 'Released', id: 'popover-year', align: 'right',
+        pills: [['', 'All'],
+            ...Array.from({length: 5}, (_, i) => [String(THIS_YEAR - i), String(THIS_YEAR - i)]),
+            ['older', 'Older']]
+    },
     rating: {
         title: 'Rating', id: 'popover-rating', toggle: true, align: 'right',
         pills: [['4', '4+'], ['5', '5+'], ['6', '6+'], ['7', '7+'], ['8', '8+'], ['9', '9+'], ['10', '10']]
@@ -330,21 +326,18 @@ const FILTER_DEFS = {
 T.toolbar = () => {
     const pill = (key, [value, label, extra = {}]) => `
           <div class="filter-pill ${extra.movieOnly ? 'movie-only' : ''} ${extra.tvOnly ? 'tv-only' : ''} ${extra.disabled ? 'disabled' : ''}"
-               data-key="${escAttr(key)}" data-value="${escAttr(value)}" data-label="${escAttr(label)}" ${extra.tvLabel ? `data-tv-label="${escAttr(extra.tvLabel)}"` : ''}
-               ${extra.disabled ? 'title="Coming soon" aria-disabled="true"' : `onclick="selectPill('${escAttr(key)}', '${escAttr(value)}')"`}>${label}</div>`;
-    const block = (key, def) => {
-        const pills = typeof def.pills === 'function' ? def.pills() : def.pills;
-        return `
+               data-key="${key}" data-value="${value}" data-label="${label}" ${extra.tvLabel ? `data-tv-label="${extra.tvLabel}"` : ''}
+               ${extra.disabled ? 'title="Coming soon" aria-disabled="true"' : `onclick="selectPill('${key}', '${value}')"`}>${label}</div>`;
+    const block = (key, def) => `
     <div class="filter-wrapper ${def.movieOnly ? 'movie-only' : ''} ${def.providerOnly ? 'provider-only' : ''}">
       <div class="filter-trigger" id="trigger-${key}" onclick="toggleFilterPopover(event, '${def.id}')">${def.title}
         <span class="filter-badge" id="badge-${key}"></span> <span class="eq-icon">=</span></div>
       <div class="filter-popover ${def.large ? 'large-popover' : ''} ${def.align === 'right' ? 'align-right' : ''}" id="${def.id}">
-        <div class="pill-grid">${pills.map(p => pill(key, p)).join('')}
+        <div class="pill-grid">${def.pills.map(p => pill(key, p)).join('')}
         </div>
         <button class="apply-btn" onclick="applyFilters()">Apply</button>
       </div>
     </div>`;
-    };
 
     const sortItems = [['newest', 'Newest'], ['popular', 'Most viewed'], ['release', 'Release date'],
         ['rating', 'Top rated'], ['name', 'Name A-Z'], ['votes', 'Most voted']];
@@ -496,7 +489,7 @@ T.home = () => `
       </a>`).join('')}
     </div>
 
-    <h2 class="section-title"><span id="network-tab-title">TRENDING ON ${FIRST_NETWORK.name.toUpperCase()}</span> <a class="see-all" id="network-see-all" href="${pageUrl(FIRST_NETWORK.key)}">See all ›</a></h2>
+    <h2 class="section-title"><span id="network-tab-title">TRENDING ON NETFLIX</span> <a class="see-all" id="network-see-all" href="${pageUrl('netflix')}">See all ›</a></h2>
     <div class="network-tabs" id="network-tabs" role="tablist">
       ${NETWORKS.map((n, i) => `<button type="button" class="network-tab${i === 0 ? ' active' : ''}" role="tab" aria-selected="${i === 0}" data-network="${n.key}" onclick="selectNetworkTab('${n.key}')">${n.name}</button>`).join('')}
     </div>
@@ -565,7 +558,7 @@ T.series = () => `
       <div class="episode-list" id="episode-list"></div>
     </div>
     <div id="series-cast-box" class="watch-block" hidden><h2 class="section-title">CAST</h2><div id="series-cast" class="watch-cast"></div></div>
-    <div id="series-similar-box" class="watch-block"><h2 class="section-title">MORE LIKE THIS</h2><div class="movie-row watch-similar" id="series-similar-row"></div></div>
+    <div id="series-similar-box" class="watch-block"><h2 class="section-title">MORE LIKE THIS</h2><div class="movie-row watch-similar" id="similar-row"></div></div>
   </section>`;
 
 T.toTop = () => `
@@ -574,23 +567,15 @@ T.toTop = () => `
   </button>`;
 
 // ---------------------------------------------------------------- category + search results
-// The toolbar owns #category-title, so the grid's heading has its own id and the two can sit on one page.
 T.grid = (withTitle) => `
   <div id="grid-view">
-    ${withTitle ? '<h1 id="grid-title" class="grid-title">&nbsp;</h1>' : ''}
+    ${withTitle ? '<h1 id="category-title">&nbsp;</h1>' : ''}
     <div class="movie-grid" id="movie-grid"></div>
   </div>`;
 
 // ---------------------------------------------------------------- profile / history / liked / watchlist / settings
-// The pane is resolved through PANE_ALIAS, because the tabs link to page names (profile, watchhistory) while the
-// panes are stored under their own keys (overview, history). Either form works, and an unknown tab falls back to
-// overview so the wrapper id and the rendered pane can never disagree.
 T.dashboard = (tab) => {
-    const PANE_ALIAS = {profile: 'overview', watchhistory: 'history'};
-    const KNOWN_PANES = ['overview', 'history', 'liked', 'watchlist', 'settings'];
-    const wanted = PANE_ALIAS[tab] || tab;
-    const pane = KNOWN_PANES.includes(wanted) ? wanted : 'overview';
-    const isSettings = pane === 'settings';
+    const isSettings = tab === 'settings';
     const paneTitle = 'font-family: \'Montserrat\'; font-size: 1.2em; font-weight: bold; border: none; padding: 0;';
     const tabs = [['overview', 'profile', 'Overview'], ['liked', 'liked', 'Liked'],
         ['history', 'watchhistory', 'Watch history'], ['watchlist', 'watchlist', 'Watchlist']];
@@ -655,9 +640,9 @@ T.dashboard = (tab) => {
     </div>` : `
     <div id="profile-content">
       <div class="dash-tabs">
-        ${tabs.map(([key, page, label]) => `<a id="tab-${key}" class="dash-tab ${key === pane ? 'active' : ''}" href="${pageUrl(page)}">${label}</a>`).join('')}
+        ${tabs.map(([key, page, label]) => `<a id="tab-${key}" class="dash-tab ${key === tab ? 'active' : ''}" href="${pageUrl(page)}">${label}</a>`).join('')}
       </div>
-      <div id="pane-${pane}" class="tab-pane" style="margin-top: 30px;">${panes[pane]}</div>
+      <div id="pane-${tab}" class="tab-pane" style="margin-top: 30px;">${panes[tab]}</div>
     </div>`;
 
     return `
@@ -792,7 +777,7 @@ T.footer = () => `
       </div>
     </div>
     <div class="footer-bottom">
-      <p>© ${new Date().getFullYear()} RUIN.TO. All rights reserved.</p>
+      <p>© ${THIS_YEAR} RUIN.TO. All rights reserved.</p>
       <p class="tmdb-credit">
         <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" aria-label="TMDB"><img src="${APP_BASE}assets/tmdb-logo.svg" alt="TMDB" height="14" onerror="this.replaceWith(document.createTextNode('TMDB'))"></a>
         This product uses the TMDB API but is not endorsed or certified by TMDB.
@@ -867,7 +852,7 @@ const LEGAL_DOCS = {
     <p>RUIN.TO features content and links from partners and external services. They follow their own privacy practices, which we do not control, so please read them before sharing personal information with them.</p>
 
     <h2>8. Protecting your information</h2>
-    <p>Information moving between your browser and RUIN.TO is encrypted (HTTPS), and each account can only reach its own data. No method of storing or sending information over the internet is complete secure, so we cannot promise absolute security.</p>
+    <p>Information moving between your browser and RUIN.TO is encrypted (HTTPS), and each account can only reach its own data. No method of storing or sending information over the internet is completely secure, so we cannot promise absolute security.</p>
 
     <h2>9. Your choices and rights</h2>
     <ul>

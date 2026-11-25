@@ -21,18 +21,6 @@ GET /trick/<tmdb>/<sheet>.webp      -> sprite sheet
 GET /tricklog[?n=200]               -> tail of relay.log (for a windowless launch)
 GET /health
 
-EVERY SOURCE IS VERIFIED BEFORE IT IS OFFERED. verify.precheck() runs in Job.add:
-the length must sit inside the band around the TMDB runtime, and any provider that
-resolves by scrape or by search must also name the film in the page it came from.
-A source that fails is never added; the reason lands in /status. Sources that pass
-but cannot be length-checked (TMDB has no runtime) are flagged unverified and sorted
-behind the verified ones, so source.py only reaches them when nothing better exists.
-
-A cam MARK is a human verdict and outranks every guess, but it is not forever: a host
-that served a recording in March serves a web-dl in June, and a permanent mark would
-pin it to the bottom of the list for good. Marks expire after MARK_TTL_DAYS and then
-the detector decides again. A bare `true` on disk is read as a mark with no expiry.
-
 Everything printed also goes to relay.log next to this file, because the launcher usually
 starts this with no console attached.
 """
@@ -57,8 +45,6 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import verify
-
 PORT = 8787
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -79,16 +65,6 @@ JOBS_TTL = 180
 HOP_TIMEOUT = 12
 PROBE_TIMEOUT = 8
 THROTTLE_RETRIES = 3
-
-# Seconds a stream must reach before it counts, derived per title from the runtime so a
-# 13-minute short is not rejected by a fixed 8-minute floor. TMDB reports runtime in MINUTES,
-# so the value is multiplied by 60 before use. Set per worker thread.
-FLOOR = threading.local()
-
-
-def current_floor():
-    return getattr(FLOOR, "value", MIN_SECONDS)
-
 
 SEG_CACHE_BYTES = 64 * 1024 * 1024
 SEG_CACHE_MAX_ENTRY = 4 * 1024 * 1024
@@ -242,12 +218,6 @@ API_PATH_RE = re.compile(r"[\"'`](/[a-z0-9_\-./]*(?:api|stream|source|playlist|m
 IFRAME_RE = re.compile(r"<(?:iframe|source)[^>]+(?:data-)?src=[\"']([^\"']+)[\"']", re.I)
 AD_HOST_RE = re.compile(r"(doubleclick|googlesyndication|adsystem|popads|adsterra|googletagmanager|facebook\.com/tr)", re.I)
 
-TITLE_TAG_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
-OG_TITLE_RE = re.compile(r'<meta[^>]+property=["\']og:title["\'][^>]*>', re.I)
-OG_CONTENT_RE = re.compile(r'content=["\']([^"\']+)["\']', re.I)
-H1_RE = re.compile(r"<h1[^>]*>(.*?)</h1>", re.I | re.S)
-TAG_STRIP_RE = re.compile(r"<[^>]+>")
-
 STREAM_INF_RE = re.compile(r"#EXT-X-STREAM-INF:([^\r\n]+)")
 MEDIA_SUB_RE = re.compile(r'#EXT-X-MEDIA:[^\r\n]*TYPE="?SUBTITLES"?[^\r\n]*', re.I)
 ATTR_RE = re.compile(r'([A-Z0-9-]+)=("[^"]*"|[^,]*)')
@@ -264,7 +234,7 @@ CAM_TOKENS = ("hdcam", "camrip", "hqcam", "cam", "telesync", "telecine", "hdts",
               "dvdscr", "screener", "workprint", "pdvd")
 DIGITAL_TOKENS = ("web-dl", "webdl", "webrip", "web", "bluray", "blu-ray", "bdrip",
                   "brrip", "remux", "hdtv", "dvdrip")
-TS_RE = re.compile(r"(?:^|[\s\-_.\[(/])ts(?:[\s\-_.\])/]|$)")
+TS_RE = re.compile(r"(?:^|[\s\-_.\[(])ts(?:[\s\-_.\])]|$)")
 
 # TMDB release type ids: 3 = theatrical, 4 = digital, 5 = physical. Remembered per title for the process lifetime.
 CINEMA_CACHE = {}
@@ -281,12 +251,9 @@ PROVIDER_TRUST = {
 TRUST_WEIGHT = 0.6
 
 # "That copy is a recording" said by hand, per title + provider. A guess cannot know; this can.
-# A mark is a moment in time, not a verdict for ever: a host that served a recording now will serve a
-# web-dl later, and a permanent mark would pin it to the bottom of the list for good. Marks lapse.
 CAM_MARKS_PATH = os.path.join(BASE_DIR, "cam_marks.json")
 CAM_MARKS = {}
 CAM_MARKS_LOCK = threading.Lock()
-MARK_TTL_DAYS = 30
 
 
 def is_cam(*blobs):
@@ -300,18 +267,9 @@ def mark_key(tmdb, provider):
     return "%s|%s" % (tmdb, provider)
 
 
-def mark_alive(value):
-    """A bare `true` is a legacy mark with no expiry. A number is an epoch stamp."""
-    if value is True:
-        return True
-    if isinstance(value, (int, float)):
-        return float(value) > time.time()
-    return False
-
-
 def is_marked_cam(tmdb, provider):
     with CAM_MARKS_LOCK:
-        return mark_alive(CAM_MARKS.get(mark_key(tmdb, provider)))
+        return bool(CAM_MARKS.get(mark_key(tmdb, provider)))
 
 
 def load_cam_marks():
@@ -324,16 +282,14 @@ def load_cam_marks():
         return
     with CAM_MARKS_LOCK:
         for key, value in data.items():
-            if mark_alive(value):
-                CAM_MARKS[key] = value
+            if value:
+                CAM_MARKS[key] = True
 
 
 def save_cam_mark(tmdb, provider, cam):
     with CAM_MARKS_LOCK:
-        for key in [k for k, v in CAM_MARKS.items() if not mark_alive(v)]:
-            CAM_MARKS.pop(key, None)
         if cam:
-            CAM_MARKS[mark_key(tmdb, provider)] = time.time() + MARK_TTL_DAYS * 86400
+            CAM_MARKS[mark_key(tmdb, provider)] = True
         else:
             CAM_MARKS.pop(mark_key(tmdb, provider), None)
         snapshot = dict(CAM_MARKS)
@@ -344,119 +300,51 @@ def save_cam_mark(tmdb, provider, cam):
         say("cam mark save failed: %s" % exc)
 
 
-def _tmdb_get(path, deadline=None):
-    """TMDB GET that works with either key style.
-
-    A v4 token needs Authorization: Bearer; a v3 key needs ?api_key=. Sending only the Bearer header is what
-    made release_dates 401 silently, which killed the cam guess for every title while every other provider
-    still worked, because nothing else on the vidsrc path touches TMDB at all.
-    """
-    api_key = tmdb_key()
-    if not api_key:
-        return None
-    base = "https://api.themoviedb.org/3" + path
-    headers = {"User-Agent": UA, "Accept": "application/json"}
-    tries = []
-    if api_key.startswith("ey"):
-        tries.append((base, dict(headers, Authorization="Bearer " + api_key)))
-    else:
-        sep = "&" if "?" in base else "?"
-        tries.append((base + sep + "api_key=" + urllib.parse.quote(api_key), headers))
-        tries.append((base, dict(headers, Authorization="Bearer " + api_key)))
-    for url, extra in tries:
-        req = urllib.request.Request(url, headers=extra)
-        try:
-            with opener().open(req, timeout=hop_timeout(deadline, 6)) as resp:
-                payload = json.loads(resp.read().decode("utf-8", "replace"))
-            if isinstance(payload, dict):
-                return payload
-        except Exception:
-            continue
-    return None
-
-
 def cinema_only(tmdb, deadline=None):
-    """True = in cinemas, no home release available yet. None = TMDB could not say.
+    """True = in cinemas, no home release anywhere yet. None = TMDB could not say.
 
     Provider URLs carry no release name at all (a vidsrc URL is a random host and a token), so a cam rip and a
     WEB-DL are byte-for-byte indistinguishable from the URL. Without this, every vidsrc source would be labelled
-    digital even when the film only exists as a recording.
-
-    The DATES decide, not the type ids. TMDB carries scheduled digital and physical dates months ahead, so
-    "a type 4 entry exists" is not the same as "a digital copy exists". A home-release entry only counts once
-    its date has passed.
-
-    Even this is not enough on its own: TMDB lists a passed digital date for Dead of Night while also having no
-    runtime for it, and the film exists only as a cam. So a zero runtime is treated as the stronger signal by
-    Job.add, whatever this returns.
-    """
+    digital even when the film only exists as a recording."""
     key = str(tmdb)
     with CINEMA_LOCK:
         if key in CINEMA_CACHE:
             return CINEMA_CACHE[key]
 
-    today = time.strftime("%Y-%m-%d")
+    api_key = tmdb_key()
+    if not api_key:
+        return None
+    headers = {"User-Agent": UA, "Accept": "application/json", "Authorization": "Bearer " + api_key}
+    req = urllib.request.Request("https://api.themoviedb.org/3/movie/%s/release_dates" % tmdb, headers=headers)
     value = None
-    payload = _tmdb_get("/movie/%s/release_dates" % tmdb, deadline)
-    if payload:
-        home_out = False
-        theatrical = False
-        for country in (payload.get("results") or []):
-            for entry in (country.get("release_dates") or []):
-                kind = entry.get("type")
-                stamp = (entry.get("release_date") or "")[:10]
-                if not stamp:
-                    continue
-                if kind in (4, 5) and stamp <= today:
-                    home_out = True
-                elif kind == 3:
-                    theatrical = True
-        if home_out:
+    try:
+        with opener().open(req, timeout=hop_timeout(deadline, 6)) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "replace"))
+        types = {entry.get("type")
+                 for country in (payload.get("results") or [])
+                 for entry in (country.get("release_dates") or [])}
+        if types & {4, 5}:
             value = False
-        elif theatrical:
+        elif 3 in types:
             value = True
-
-    if value is None:
-        meta = _tmdb_get("/movie/%s" % tmdb, deadline)
-        released = (meta or {}).get("release_date") or ""
-        if released:
-            try:
-                days = (time.mktime(time.strptime(released, "%Y-%m-%d")) - time.time()) / 86400.0
-                value = -400 <= days <= 60
-            except ValueError:
-                value = None
+    except Exception:
+        value = None
 
     with CINEMA_LOCK:
         CINEMA_CACHE[key] = value
     return value
 
 
-def page_evidence(page):
-    """Title-ish strings a page says about itself, for the identity check."""
-    page = page or ""
-    out = []
-    for match in TITLE_TAG_RE.finditer(page):
-        out.append(TAG_STRIP_RE.sub(" ", match.group(1)).strip())
-    for match in H1_RE.finditer(page):
-        out.append(TAG_STRIP_RE.sub(" ", match.group(1)).strip())
-    for match in OG_TITLE_RE.finditer(page):
-        inner = OG_CONTENT_RE.search(match.group(0))
-        if inner:
-            out.append(inner.group(1).strip())
-    return [item for item in out if item]
-
-
 def quality_rank(src):
     """Higher is better. Used to order the source list so the best copy is always the first one tried.
 
-    Six things, in falling order of importance:
+    Four things, in falling order of importance:
 
-      0. a VERIFIED source beats an unverified one outright. Verification is the whole point;
       1. a copy marked as a recording BY HAND loses to everything (-400). That is the only certain signal there is;
       2. a cam TOKEN in the URL or tags (HDCAM, TS, TC...) loses hard (-200), and a GUESS does too but softly (-70);
-      3. a length close to the runtime wins, because a wrong film is rarely the right length;
-      4. a digital token (+60) and a progressive MP4 (+30) win;
-      5. only then does the height matter, and only slightly (/200).
+      3. a digital token (+60) and a progressive MP4 (+30) win, and a source that is neither gets a small nudge;
+      4. only then does the height matter, and only slightly (/200). A 1080p HDCAM beating a 480p WEB-DL is exactly
+         the bug that made the height a poor tiebreaker in the first place.
 
     When nothing at all is known the provider trust order decides, so an opaque host that keeps handing out
     recordings does not sit in front of the ones that do not.
@@ -466,13 +354,12 @@ def quality_rank(src):
                          " ".join(meta.get("tags") or []))
     lowered = blob.lower()
     hard_cam = is_cam(blob)
-    score = 1000.0 if meta.get("verified") else (100.0 if meta.get("unverified") else 0.0)
+    score = 0.0
     if src.get("kind") == "mp4":
         score += 30                                   # a progressive file is normally a real digital copy
     if any(token in lowered for token in DIGITAL_TOKENS):
         score += 60
     score += min(to_int(meta.get("height")), 2160) / 200.0
-    score -= min(float(meta.get("delta") or 0), 0.5) * 60.0
     if meta.get("cam_mark"):
         meta["cam"] = True
         score -= 400
@@ -832,7 +719,7 @@ def seg_cache_get(key):
         return hit
 
 
-def seg_cache_put(key, ctype, body, crange="", status=200):
+def seg_cache_put(key, ctype, body):
     global SEG_CACHE_USED
     if not body or len(body) > SEG_CACHE_MAX_ENTRY:
         return
@@ -840,7 +727,7 @@ def seg_cache_put(key, ctype, body, crange="", status=200):
         old = SEG_CACHE.pop(key, None)
         if old is not None:
             SEG_CACHE_USED -= len(old[1])
-        SEG_CACHE[key] = (ctype, body, crange, status)
+        SEG_CACHE[key] = (ctype, body)
         SEG_CACHE_USED += len(body)
         while SEG_CACHE_USED > SEG_CACHE_BYTES and SEG_CACHE:
             _, evicted = SEG_CACHE.popitem(last=False)
@@ -1544,9 +1431,8 @@ def stamp_token(url, token):
     return base + "?token=" + urllib.parse.quote(token)
 
 
-def first_valid(candidates, referer, log, deadline=None, blobs=None):
+def first_valid(candidates, referer, log, deadline=None):
     ref_origin = _origin_of(referer)
-    evidence = list(blobs or [])
     for url in absolutize(list(dict.fromkeys(candidates)), referer)[:24]:
         if out_of_time(deadline):
             log.append("deadline while probing")
@@ -1594,15 +1480,13 @@ def first_valid(candidates, referer, log, deadline=None, blobs=None):
                 "url": url,
                 "secs": secs,
                 "referer": referer,
-                "evidence": evidence,
                 "meta": extract_stream_meta(text, url),
             }
 
         secs = duration(text)
         log.append("media %.0fs %s" % (secs, url))
-        if secs >= current_floor():
-            return {"url": url, "secs": secs, "referer": referer,
-                    "evidence": evidence, "meta": {"cam": is_cam(url)}}
+        if secs >= MIN_SECONDS:
+            return {"url": url, "secs": secs, "referer": referer, "meta": {"cam": is_cam(url)}}
     return None
 
 
@@ -1650,22 +1534,34 @@ def imdb_id(tmdb, key, log, deadline=None):
     if not key:
         log.append("tmdb no key")
         return None
+    headers = {"User-Agent": UA, "Accept": "application/json", "Authorization": "Bearer " + key}
     for path in ("/movie/%s/external_ids" % tmdb, "/movie/%s" % tmdb):
         if out_of_time(deadline):
             log.append("tmdb deadline")
             break
-        payload = _tmdb_get(path, deadline)
-        if not isinstance(payload, dict):
-            log.append("tmdb err " + path)
-            continue
-        log.append("tmdb 200 " + path)
-        if payload.get("imdb_id"):
-            return payload["imdb_id"]
+        req = urllib.request.Request("https://api.themoviedb.org/3" + path, headers=headers)
+        try:
+            with opener().open(req, timeout=hop_timeout(deadline)) as resp:
+                payload = json.loads(resp.read().decode("utf-8", "replace"))
+            log.append("tmdb 200 " + path)
+            if payload.get("imdb_id"):
+                return payload["imdb_id"]
+        except Exception as exc:
+            log.append("tmdb err " + str(exc))
     return None
 
 
 def tmdb_meta(tmdb, deadline=None):
-    payload = _tmdb_get("/movie/%s" % tmdb, deadline)
+    key = tmdb_key()
+    if not key:
+        return None
+    headers = {"User-Agent": UA, "Accept": "application/json", "Authorization": "Bearer " + key}
+    req = urllib.request.Request("https://api.themoviedb.org/3/movie/%s" % tmdb, headers=headers)
+    try:
+        with opener().open(req, timeout=hop_timeout(deadline)) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
     if not isinstance(payload, dict):
         return None
     return {
@@ -1856,7 +1752,7 @@ def _vidsrc_flow(session, player, pool, api_token, log, deadline):
             continue
 
         secs = duration(vtext)
-        if secs < current_floor():
+        if secs < MIN_SECONDS:
             log.append("short %.0fs" % secs)
             continue
 
@@ -1867,7 +1763,6 @@ def _vidsrc_flow(session, player, pool, api_token, log, deadline):
             "kind": "hls",
             "bare": True,
             "trick": master_url,
-            "evidence": page_evidence(session.get("body") or ""),
             "meta": {
                 "height": pick["height"] or None,
                 "tags": ["%dP" % pick["height"]] if pick["height"] else [],
@@ -1893,10 +1788,9 @@ def p_vidsrc_me(tmdb, get_imdb, log, deadline):
         if st != 200 or not page:
             continue
 
-        blobs = page_evidence(page)
         direct = playlists(page)
         if direct:
-            hit = first_valid(direct, embed_url, log, deadline, blobs)
+            hit = first_valid(direct, embed_url, log, deadline)
             if hit:
                 return hit
 
@@ -1909,7 +1803,6 @@ def p_vidsrc_me(tmdb, get_imdb, log, deadline):
             log.append("rcp %d len=%d" % (rst, len(rcp_page)))
             if rst != 200 or not rcp_page:
                 continue
-            blobs += page_evidence(rcp_page)
 
             found = playlists(rcp_page)
             sub_paths = re.findall(r"['\"](/(?:pro|src)rcp/[^'\"]+)['\"]", rcp_page, re.I)
@@ -1921,20 +1814,17 @@ def p_vidsrc_me(tmdb, get_imdb, log, deadline):
                 sst, sub_page = get_text(sub_url, referer=rcp_url, timeout=hop_timeout(deadline))
                 log.append("prorcp %d len=%d" % (sst, len(sub_page)))
                 if sst == 200 and sub_page:
-                    blobs += page_evidence(sub_page)
                     found += playlists(sub_page)
                     found += [u for u in all_urls(sub_page) if ".m3u8" in u or "/hls/" in u]
 
-            hit = first_valid(found, rcp_url, log, deadline, blobs)
+            hit = first_valid(found, rcp_url, log, deadline)
             if hit:
                 return hit
     return None
 
 
 def scrape_embed(page_url, referer, log, deadline, depth=2):
-    """Walk a page and its iframes for playlists. Returns (candidates, page evidence)."""
     visited = set()
-    evidence = []
 
     def walk(url, ref, level):
         if url in visited or out_of_time(deadline):
@@ -1944,8 +1834,6 @@ def scrape_embed(page_url, referer, log, deadline, depth=2):
         log.append("scrape[d%d] %d len=%d" % (level, status, len(page)))
         if status != 200 or not page:
             return []
-
-        evidence.extend(page_evidence(page))
 
         found = playlists(page)
         found += [u for u in all_urls(page) if any(k in u for k in (".m3u8", "/hls/", "playlist", "master"))]
@@ -1971,8 +1859,7 @@ def scrape_embed(page_url, referer, log, deadline, depth=2):
 
         return found
 
-    found = walk(page_url, referer, 0)
-    return found, evidence
+    return walk(page_url, referer, 0)
 
 
 def p_autoembed(tmdb, get_imdb, log, deadline):
@@ -1982,8 +1869,7 @@ def p_autoembed(tmdb, get_imdb, log, deadline):
     ):
         if out_of_time(deadline):
             break
-        found, blobs = scrape_embed(page, "https://player.autoembed.cc/", log, deadline)
-        hit = first_valid(found, page, log, deadline, blobs)
+        hit = first_valid(scrape_embed(page, "https://player.autoembed.cc/", log, deadline), page, log, deadline)
         if hit:
             return hit
     return None
@@ -1991,38 +1877,32 @@ def p_autoembed(tmdb, get_imdb, log, deadline):
 
 def p_multiembed(tmdb, get_imdb, log, deadline):
     page = "https://multiembed.mov/?video_id=%s&tmdb=1" % tmdb
-    found, blobs = scrape_embed(page, "https://multiembed.mov/", log, deadline)
-    return first_valid(found, page, log, deadline, blobs)
+    return first_valid(scrape_embed(page, "https://multiembed.mov/", log, deadline), page, log, deadline)
 
 
 def p_vidsrcto(tmdb, get_imdb, log, deadline):
     page = "https://vidsrc.to/embed/movie/" + tmdb
-    found, blobs = scrape_embed(page, "https://vidsrc.to/", log, deadline)
-    return first_valid(found, page, log, deadline, blobs)
+    return first_valid(scrape_embed(page, "https://vidsrc.to/", log, deadline), page, log, deadline)
 
 
 def p_2embed(tmdb, get_imdb, log, deadline):
     page = "https://www.2embed.cc/embed/" + tmdb
-    found, blobs = scrape_embed(page, "https://www.2embed.cc/", log, deadline)
-    return first_valid(found, page, log, deadline, blobs)
+    return first_valid(scrape_embed(page, "https://www.2embed.cc/", log, deadline), page, log, deadline)
 
 
 def p_111movies(tmdb, get_imdb, log, deadline):
     page = "https://111movies.com/movie/" + tmdb
-    found, blobs = scrape_embed(page, "https://111movies.com/", log, deadline)
-    return first_valid(found, page, log, deadline, blobs)
+    return first_valid(scrape_embed(page, "https://111movies.com/", log, deadline), page, log, deadline)
 
 
 def p_moviesapi(tmdb, get_imdb, log, deadline):
     page = "https://moviesapi.club/movie/" + tmdb
-    found, blobs = scrape_embed(page, "https://moviesapi.club/", log, deadline)
-    return first_valid(found, page, log, deadline, blobs)
+    return first_valid(scrape_embed(page, "https://moviesapi.club/", log, deadline), page, log, deadline)
 
 
 def p_embedsu(tmdb, get_imdb, log, deadline):
     page = "https://embed.su/embed/movie/" + tmdb
-    found, blobs = scrape_embed(page, "https://embed.su/", log, deadline)
-    return first_valid(found, page, log, deadline, blobs)
+    return first_valid(scrape_embed(page, "https://embed.su/", log, deadline), page, log, deadline)
 
 
 def caption_lang(name):
@@ -2107,7 +1987,6 @@ def p_vidlink(tmdb, get_imdb, log, deadline):
             "referer": referer,
             "kind": "mp4",
             "subtitles": captions,
-            "evidence": [text[:400]],
             "meta": {"height": height or None, "tags": ["%dP" % height] if height else [], "kind": "mp4"},
         })
         if len(hits) >= 2:
@@ -2170,7 +2049,6 @@ def p_vidfast(tmdb, get_imdb, log, deadline):
             continue
 
         found = []
-        blobs = page_evidence(page)
         for server in servers[:2]:
             if out_of_time(deadline) or not isinstance(server, dict) or not server.get("data"):
                 continue
@@ -2187,12 +2065,11 @@ def p_vidfast(tmdb, get_imdb, log, deadline):
             if stream is None:
                 continue
             blob = json.dumps(stream)
-            blobs.append(blob[:400])
             found += playlists(blob)
             found += [u for u in all_urls(blob) if ".m3u8" in u or "/hls/" in u or ".mp4" in u]
 
         if found:
-            hit = first_valid(found, page_url, log, deadline, blobs)
+            hit = first_valid(found, page_url, log, deadline)
             if hit:
                 return hit
     return None
@@ -2217,7 +2094,6 @@ def p_videasy(tmdb, get_imdb, log, deadline):
         return None
 
     found = []
-    blobs = []
     for server in ("miami", "boise", "vegas"):
         if out_of_time(deadline):
             break
@@ -2233,65 +2109,26 @@ def p_videasy(tmdb, get_imdb, log, deadline):
         if plain is None:
             continue
         blob = plain if isinstance(plain, str) else json.dumps(plain)
-        blobs.append(blob[:400])
         found += playlists(blob)
         found += [u for u in all_urls(blob) if ".m3u8" in u or "/hls/" in u]
         if found:
             break
 
-    return first_valid(found, referer, log, deadline, blobs)
-
-
-# The embed page ships the playlist two ways: streams[] entries with ?cf=N already baked in, which now
-# 403 for any plain HTTP client, and a masterPlaylist block carrying its own long-lived token. The master
-# is what the player itself builds, so that is the form we use, and cf is stripped everywhere.
-MASTER_BLOCK_RE = re.compile(r"window\.masterPlaylist\s*=\s*\{(.*?)\}\s*\n", re.S)
-MASTER_PARAMS_RE = re.compile(r"params\s*:\s*\{(.*?)\}", re.S)
-MASTER_URL_RE = re.compile(r"url\s*:\s*['\"]([^'\"]+)['\"]")
-PLAIN_PAIR_RE = re.compile(r"['\"]([A-Za-z_]+)['\"]\s*:\s*['\"]([^'\"]*)['\"]")
-
-
-def vixsrc_master(page):
-    """The page's own master playlist, carrying the token from its params block."""
-    block = MASTER_BLOCK_RE.search(page)
-    if not block:
-        return None
-    body = block.group(1)
-    match = MASTER_URL_RE.search(body)
-    if not match:
-        return None
-    url = unescape(match.group(1))
-    if not url.startswith("http"):
-        url = urllib.parse.urljoin("https://vixsrc.to/", url)
-    params = {}
-    params_block = MASTER_PARAMS_RE.search(body)
-    if params_block:
-        for key, value in PLAIN_PAIR_RE.findall(params_block.group(1)):
-            if value:
-                params[key] = unescape(value)
-    parts = urllib.parse.urlsplit(url)
-    query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
-    names = {k for k, _ in query}
-    for key, value in params.items():
-        if key not in names:
-            query.append((key, value))
-    return urllib.parse.urlunsplit(
-        (parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(query), ""))
+    return first_valid(found, referer, log, deadline)
 
 
 def vixsrc_candidates(page):
-    out = []
-    master = vixsrc_master(page)
-    if master:
-        out.append(master)
-
+    raws = js_fields(page, "url")
+    if not raws:
+        return []
     token = js_field(page, "token")
     expires = js_field(page, "expires")
-    for raw in js_fields(page, "url"):
+
+    out = []
+    for raw in raws:
         url = raw if raw.startswith("http") else urllib.parse.urljoin("https://vixsrc.to/", raw)
         parts = urllib.parse.urlsplit(url)
-        query = [(k, v) for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
-                 if k != "cf"]
+        query = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
         names = {k for k, _ in query}
         if token and "token" not in names:
             query.append(("token", token))
@@ -2325,7 +2162,7 @@ def p_vixsrc(tmdb, get_imdb, log, deadline):
         log.append("no url field")
         return None
 
-    return first_valid(found + playlists(page), player, log, deadline, page_evidence(page))
+    return first_valid(found + playlists(page), player, log, deadline)
 
 
 def p_videm(tmdb, get_imdb, log, deadline):
@@ -2334,7 +2171,6 @@ def p_videm(tmdb, get_imdb, log, deadline):
         log.append("no imdb")
         return None
     found = []
-    blobs = []
     for host in ("https://videm.cc", "https://videm.buzz"):
         if out_of_time(deadline):
             log.append("deadline at %s" % host)
@@ -2343,7 +2179,6 @@ def p_videm(tmdb, get_imdb, log, deadline):
         status, page = get_text(endpoint, referer="https://movieuniverse.skin/",
                                 timeout=hop_timeout(deadline))
         log.append("embed %s %d len=%d" % (host, status, len(page)))
-        blobs += page_evidence(page)
         found += playlists(page)
         found += [u for u in all_urls(page) if ".m3u8" in u or "/hls/" in u]
 
@@ -2358,26 +2193,24 @@ def p_videm(tmdb, get_imdb, log, deadline):
                 found += playlists(blob)
                 found += [u for u in all_urls(blob) if ".m3u8" in u or "/hls/" in u]
 
-    return first_valid(found, "https://movieuniverse.skin/", log, deadline, blobs)
+    return first_valid(found, "https://movieuniverse.skin/", log, deadline)
 
 
-# name, function, id_keyed. id_keyed=True means the provider routes strictly by the
-# TMDB (or IMDb) id and never searches by name, so identity needs no page evidence.
 PROVIDERS = [
-    ("vixsrc", p_vixsrc, True),
-    ("vidsrc", p_vidsrc, True),
-    ("vidlink", p_vidlink, True),
-    ("vidsrc_me", p_vidsrc_me, True),
-    ("vidfast", p_vidfast, True),
-    ("autoembed", p_autoembed, False),
-    ("2embed", p_2embed, False),
-    ("vidsrcto", p_vidsrcto, False),
-    ("multiembed", p_multiembed, False),
-    ("videm", p_videm, True),
-    ("videasy", p_videasy, False),
-    ("111movies", p_111movies, False),
-    ("moviesapi", p_moviesapi, False),
-    ("embedsu", p_embedsu, False),
+    ("vixsrc", p_vixsrc),
+    ("vidsrc", p_vidsrc),
+    ("vidlink", p_vidlink),
+    ("vidsrc_me", p_vidsrc_me),
+    ("vidfast", p_vidfast),
+    ("autoembed", p_autoembed),
+    ("2embed", p_2embed),
+    ("vidsrcto", p_vidsrcto),
+    ("multiembed", p_multiembed),
+    ("videm", p_videm),
+    ("videasy", p_videasy),
+    ("111movies", p_111movies),
+    ("moviesapi", p_moviesapi),
+    ("embedsu", p_embedsu),
 ]
 
 
@@ -2426,11 +2259,8 @@ class Job:
         self.imdb = imdb_hint if (imdb_hint and imdb_hint.startswith("tt")) else None
         self.imdb_done = bool(self.imdb)
         self.imdb_lock = threading.Lock()
-        # set by job_for from TMDB release data: True = in cinemas, None = TMDB could not say
-        self.cinema_only = None
-        # set by job_for: runtime in MINUTES, as TMDB reports it, and the title for the identity check
-        self.runtime = 0
-        self.title = ""
+        # set by job_for from TMDB release data: the film is in cinemas and has no home release yet
+        self.cinema_only = False
 
     def seed_imdb(self, imdb_hint):
         if imdb_hint and imdb_hint.startswith("tt"):
@@ -2473,46 +2303,21 @@ class Job:
         with self.imdb_lock:
             return self.imdb
 
-    def add(self, name, index, hit, id_keyed=True):
-        """Verify, then keep. A rejected source is recorded in tried and never offered."""
+    def add(self, name, index, hit):
         direct = hit["url"]
         ref = hit.get("referer") or _provider_referer(name, self.tmdb)
         meta = dict(hit.get("meta") or {})
-        seconds = int(hit.get("secs") or 0)
-
-        runtime_secs = self.runtime * 60
-        verdict = verify.precheck(seconds, runtime_secs, self.title,
-                                  list(hit.get("evidence") or []) + [direct], id_keyed)
-        if verdict["verdict"] == verify.REJECTED:
-            with self.lock:
-                self.tried.append({"provider": name, "steps": ["rejected: " + verdict["why"]],
-                                   "url": direct})
-            say("reject %s %s: %s" % (self.tmdb, name, verdict["why"]))
-            return None
-        meta["verified"] = verdict["verdict"] == verify.VERIFIED
-        if not meta["verified"]:
-            meta["unverified"] = True
-            meta["verify_why"] = verdict["why"]
-            say("unverified %s %s: %s" % (self.tmdb, name, verdict["why"]))
-        if runtime_secs and seconds:
-            meta["delta"] = round(abs(seconds - runtime_secs) / runtime_secs, 4)
-
         blob = "%s %s" % (direct, " ".join(meta.get("tags") or []))
         lowered = blob.lower()
-        digital = any(token in lowered for token in DIGITAL_TOKENS)
         # Flag a cinema recording here, once, so both the label and the ordering see the same answer.
         if not meta.get("cam") and is_cam(blob):
             meta["cam"] = True
         # An opaque provider URL (vidsrc, vidfast) carries no release name at all, so a cam rip is byte-for-byte
-        # identical to a WEB-DL. Two things say "nothing has been released": TMDB says the film is cinema-only,
-        # or TMDB has no runtime for it at all. The runtime is the stronger of the two -- TMDB records a digital
-        # date for Dead of Night while having no runtime, and the film exists only as a cam. Either way it is a
-        # GUESS: quality_rank treats it softly, so a source carrying a digital token still wins.
-        elif not digital and (self.cinema_only is True or not self.runtime):
+        # identical to a WEB-DL. If the film has no home release yet, the honest reading is a recording -- but only
+        # as a GUESS: quality_rank treats it softly, so a source that does carry a digital token still wins.
+        elif self.cinema_only and not any(token in lowered for token in DIGITAL_TOKENS):
             meta["cam"] = True
             meta["cam_guess"] = True
-            say("cam guess %s %s (cinema=%s runtime=%s)"
-                % (self.tmdb, name, self.cinema_only, self.runtime))
         # what the viewer already told us about this host on this film outranks any guess
         if is_marked_cam(self.tmdb, name):
             meta["cam"] = True
@@ -2530,7 +2335,7 @@ class Job:
             entry = {
                 "label": label,
                 "provider": name,
-                "seconds": seconds,
+                "seconds": int(hit.get("secs") or 0),
                 "kind": hit.get("kind") or "hls",
                 "subtitles": list(hit.get("subtitles") or []),
                 "bare": bool(hit.get("bare")),
@@ -2552,41 +2357,30 @@ class Job:
 def start_job(job):
     bg_deadline = job.started + BG_DEADLINE_S
 
-    def worker(name, index, provider, id_keyed):
-        # runtime is MINUTES from TMDB; the floor is in SECONDS
-        runtime = job.runtime
-        FLOOR.value = min(MIN_SECONDS, max(45, int(runtime * 60 * 0.6))) if runtime else MIN_SECONDS
+    def worker(name, index, provider):
         slice_deadline = min(bg_deadline, time.time() + PER_PROVIDER_S)
         steps = []
         hit = None
-        kept = 0
-        # pending must fall and changed must fire even if a hit blows up in Job.add, or the job
-        # never reports finished and every resolve waits the full SLOW_S for it
         try:
-            try:
-                hit = provider(job.tmdb, lambda: job.get_imdb(slice_deadline), steps, slice_deadline)
-            except Exception as exc:
-                steps.append("exc " + str(exc))
-            if hit:
-                for item in (hit if isinstance(hit, list) else [hit]):
-                    try:
-                        if item and job.add(name, index, item, id_keyed):
-                            kept += 1
-                    except Exception as exc:
-                        steps.append("add exc " + str(exc))
-        finally:
-            with job.lock:
-                job.pending -= 1
-                if not hit:
-                    job.tried.append({"provider": name, "steps": steps})
-                if job.pending <= 0 or len(job.sources) >= MAX_SOURCES:
-                    job.finished = True
-            job.changed.set()
-            if kept:
-                say("job %s %s kept %d" % (job.tmdb, name, kept))
+            hit = provider(job.tmdb, lambda: job.get_imdb(slice_deadline), steps, slice_deadline)
+        except Exception as exc:
+            steps.append("exc " + str(exc))
+        if hit:
+            for item in (hit if isinstance(hit, list) else [hit]):
+                if item:
+                    job.add(name, index, item)
+        with job.lock:
+            job.pending -= 1
+            if not hit:
+                job.tried.append({"provider": name, "steps": steps})
+            if job.pending <= 0 or len(job.sources) >= MAX_SOURCES:
+                job.finished = True
+        job.changed.set()
+        if hit:
+            say("job %s %s hit %d" % (job.tmdb, name, len(hit) if isinstance(hit, list) else 1))
 
-    for index, (name, provider, id_keyed) in enumerate(PROVIDERS):
-        threading.Thread(target=worker, args=(name, index, provider, id_keyed), daemon=True).start()
+    for index, (name, provider) in enumerate(PROVIDERS):
+        threading.Thread(target=worker, args=(name, index, provider), daemon=True).start()
 
 
 def job_for(tmdb, imdb_hint=None):
@@ -2604,10 +2398,7 @@ def job_for(tmdb, imdb_hint=None):
         job = Job(tmdb, imdb_hint=imdb_hint)
         JOBS[tmdb] = job
     # outside the lock: this is a network call, and it has to be known before any worker adds a source
-    meta = tmdb_meta(tmdb) or {}
-    job.runtime = to_int(meta.get("runtime"))
-    job.title = meta.get("title") or ""
-    job.cinema_only = cinema_only(tmdb)
+    job.cinema_only = cinema_only(tmdb) is True
     start_job(job)
     return job, True
 
@@ -3254,16 +3045,13 @@ class Handler(BaseHTTPRequestHandler):
 
         # Best copy first: the client autoplays index 0, so a digital file must never sit behind a cam recording.
         sources = by_quality(sources)
-        verified = sum(1 for s in sources if (s.get("meta") or {}).get("verified"))
-        say("resolve %s -> %d source(s), %d verified, in %.1fs"
-            % (tmdb, count, verified, time.time() - started))
+        say("resolve %s -> %d source(s) in %.1fs" % (tmdb, count, time.time() - started))
         self._send(200, json.dumps({
             "provider": sources[0]["label"],
             "imdb": job.imdb_value(),
             "url": sources[0]["url"],
             "source": sources[0]["url"],
             "sources": sources,
-            "verified": verified,
             "next": len(sources),
             "more": not finished,
             "tried": job.tried,
@@ -3339,20 +3127,14 @@ class Handler(BaseHTTPRequestHandler):
         sources, tried, finished = job.view()
         self._send(200, json.dumps({
             "tmdb": tmdb,
-            "title": job.title,
             "imdb": job.imdb_value(),
             "finished": finished,
             "pending": job.pending,
             "cinema_only": bool(job.cinema_only),
-            "cinema_only_raw": job.cinema_only,
-            "runtime": job.runtime,
             "sources": [{"label": s["label"], "provider": s["provider"], "seconds": s["seconds"],
                          "kind": s.get("kind"), "cam": bool((s.get("meta") or {}).get("cam")),
                          "cam_guess": bool((s.get("meta") or {}).get("cam_guess")),
                          "cam_mark": bool((s.get("meta") or {}).get("cam_mark")),
-                         "verified": bool((s.get("meta") or {}).get("verified")),
-                         "verify_why": (s.get("meta") or {}).get("verify_why"),
-                         "delta": (s.get("meta") or {}).get("delta"),
                          "height": (s.get("meta") or {}).get("height"),
                          "rank": round(quality_rank(s), 2)}
                         for s in sources],
@@ -3544,8 +3326,8 @@ class Handler(BaseHTTPRequestHandler):
 
         with SUBS_LOCK:
             if len(SUBS_CACHE) > 300:
-                for stale_key in [k for k, v in SUBS_CACHE.items() if v[0] <= now]:
-                    SUBS_CACHE.pop(stale_key, None)
+                for stale in [k for k, v in SUBS_CACHE.items() if v[0] <= now]:
+                    SUBS_CACHE.pop(stale, None)
             SUBS_CACHE[cache_key] = (now + SUBS_TTL, items)
 
         self._send(200, json.dumps(attach_proxy_urls(items)))
@@ -3669,18 +3451,7 @@ class Handler(BaseHTTPRequestHandler):
         cache_key = (url, rng or "")
         cached = seg_cache_get(cache_key)
         if cached is not None:
-            ctype = cached[0]
-            body = cached[1]
-            crange = cached[2] if len(cached) > 2 else ""
-            cstatus = cached[3] if len(cached) > 3 else 200
-            if rng and crange and cstatus == 206:
-                # a cached range must come back as 206 with its Content-Range, or the player reads
-                # a fragment as the whole file and seek-back stalls
-                status = 206
-                headers = {"Content-Type": ctype, "Accept-Ranges": "bytes",
-                           "Content-Range": crange}
-            else:
-                status, headers = 200, {"Content-Type": ctype}
+            status, headers, body = 200, {"Content-Type": cached[0]}, cached[1]
         else:
             status, headers, body = 0, {}, b""
             for attempt in range(THROTTLE_RETRIES):
@@ -3708,9 +3479,8 @@ class Handler(BaseHTTPRequestHandler):
         sniff = body[3:] if body.startswith(b"\xef\xbb\xbf") else body
         is_playlist = sniff.lstrip()[:7] == b"#EXTM3U"
 
-        if cached is None and status in (200, 206) and body and not is_playlist:
-            seg_cache_put(cache_key, headers.get("Content-Type") or "application/octet-stream",
-                          body, headers.get("Content-Range") or "", status)
+        if cached is None and status == 200 and body and not is_playlist:
+            seg_cache_put(cache_key, headers.get("Content-Type") or "application/octet-stream", body)
 
         def proxied(target):
             out = "%s/hls?u=%s" % (base, quoted(target))

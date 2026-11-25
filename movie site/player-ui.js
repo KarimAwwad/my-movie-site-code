@@ -4,16 +4,15 @@
    Loaded after script.js (see watch.html). It only builds the interface. It never decides WHERE a stream
    comes from: resolveStreams(), playSource(), teardownPlayer(), restoreProgress() and saveProgress() all stay in
    script.js, exactly as you wrote them. This file re-declares a few functions (bindPlayerControls, playerKeys,
-   buildSubtitleMenu, buildQualityMenu, updateQualityUI, pToast ...).
+   buildSubtitleMenu, pToast ...). A later <script> that declares the same function name wins, which is how this
+   file replaces the old controls without anyone editing script.js.
 
-   The server menu is READ-ONLY: verification happens in relay and grab, so there are no CAM or WRONG buttons
-   any more. The one thing the menu can still do by hand is ask for a fresh fetch.
+   It reads these globals from script.js: vid, pel, playerShell, fmtTime, hls, streamSources, sourceIndex,
+   playerMovie, togglePlay, wakePlayer, saveProgress.
    ========================================================================== */
 
 (function () {
     'use strict';
-
-    const prevPlayerKeys = window.playerKeys;
 
 // ---- SETTINGS (edit these) --------------------------------------------------------------------------------------
     const PLAYER_UI = window.PLAYER_UI = {
@@ -28,7 +27,7 @@
             ['zh', 'Chinese'], ['hi', 'Hindi'], ['nl', 'Dutch'], ['pl', 'Polish'], ['sv', 'Swedish'], ['no', 'Norwegian'],
             ['da', 'Danish'], ['fi', 'Finnish'], ['el', 'Greek'], ['he', 'Hebrew'], ['fa', 'Persian'], ['ur', 'Urdu'],
             ['bn', 'Bengali'], ['id', 'Indonesian'], ['ms', 'Malay'], ['th', 'Thai'], ['vi', 'Vietnamese'], ['tl', 'Filipino'],
-            ['cs', 'Czech'], ['sk', 'Slovak'], ['hu', 'Hungarian'], ['ro', 'Romanian'], ['bg', 'Bulgarian'], ['uk', 'Ukrainian'],
+            ['cs', 'Czech'], ['sk', 'Slovenian'], ['hu', 'Hungarian'], ['ro', 'Romanian'], ['bg', 'Bulgarian'], ['uk', 'Ukrainian'],
             ['sr', 'Serbian'], ['hr', 'Croatian'], ['sl', 'Slovenian'], ['lt', 'Lithuanian'], ['lv', 'Latvian'], ['et', 'Estonian'],
             ['is', 'Icelandic'], ['ca', 'Catalan'], ['sq', 'Albanian'], ['mk', 'Macedonian'], ['ta', 'Tamil'], ['te', 'Telugu'],
             ['ml', 'Malayalam'], ['ne', 'Nepali'], ['si', 'Sinhala'], ['km', 'Khmer'], ['sw', 'Swahili'], ['af', 'Afrikaans'],
@@ -54,35 +53,13 @@
         },
     };
 
-// Safe accessors for script.js state (works via window.ruinPlayer bridge or top-level globals)
-    function getSources() {
-        return window.ruinPlayer?.getSources?.()
-            ?? (typeof streamSources !== 'undefined' ? streamSources : []);
-    }
-
-    function getSourceIdx() {
-        return window.ruinPlayer?.getSourceIndex?.()
-            ?? (typeof sourceIndex !== 'undefined' ? sourceIndex : 0);
-    }
-
-    function getActiveHls() {
-        return window.ruinPlayer?.getHls?.()
-            ?? (typeof hls !== 'undefined' ? hls : null);
-    }
-
-    function getActiveMovie() {
-        return window.ruinPlayer?.getMovie?.()
-            ?? (typeof playerMovie !== 'undefined' ? playerMovie : null);
-    }
-
 // The relay address. window.RUIN_RELAY wins, so a different port can be set from watch.html without touching
 // script.js; otherwise the source's own origin, then script.js's STREAM_API, then the default port.
     function getRelayBase() {
         if (typeof window.RUIN_RELAY === 'string' && window.RUIN_RELAY.trim()) {
             return window.RUIN_RELAY.trim().replace(/\/+$/, '');
         }
-        const sources = getSources();
-        const activeUrl = sources?.[getSourceIdx()]?.url || '';
+        const activeUrl = streamSources?.[sourceIndex]?.url || '';
         if (/^https?:\/\//i.test(activeUrl) && activeUrl.includes('/hls?')) {
             try {
                 return new URL(activeUrl).origin;
@@ -103,40 +80,24 @@
         return `http://${location.hostname}:8789`;
     }
 
-// The library daemon (library.py). Only used to rescan after a file is deleted, or after a grab files one.
-    function getLibraryBase() {
-        if (typeof window.LIBRARY_API === 'string' && window.LIBRARY_API.trim()) {
-            return window.LIBRARY_API.trim().replace(/\/+$/, '');
-        }
-        return `http://${location.hostname}:8788`;
-    }
-
 // Resolve IMDb ID + runtime even if script.js keeps detailsCache block-scoped.
     const resolvedMetaCache = new Map();
 
     async function resolveMovieMeta() {
-        const movie = getActiveMovie();
-        const id = movie?.id;
+        const id = playerMovie?.id;
         if (!id) return {imdb_id: '', runtime: 0};
         if (resolvedMetaCache.has(id)) return resolvedMetaCache.get(id);
-
-        const bridgeImdb = window.ruinPlayer?.getImdb?.();
-        if (bridgeImdb) {
-            const meta = {imdb_id: bridgeImdb, runtime: movie?.runtime || 0};
-            resolvedMetaCache.set(id, meta);
-            return meta;
-        }
 
         const dc = (typeof detailsCache !== 'undefined' ? detailsCache : window.detailsCache);
         const cached = dc?.get?.(id);
         if (cached?.imdb_id) {
-            const meta = {imdb_id: cached.imdb_id, runtime: cached.runtime || movie?.runtime || 0};
+            const meta = {imdb_id: cached.imdb_id, runtime: cached.runtime || playerMovie?.runtime || 0};
             resolvedMetaCache.set(id, meta);
             return meta;
         }
 
-        if (movie?.imdb_id) {
-            const meta = {imdb_id: movie.imdb_id, runtime: movie.runtime || 0};
+        if (playerMovie?.imdb_id) {
+            const meta = {imdb_id: playerMovie.imdb_id, runtime: playerMovie.runtime || 0};
             resolvedMetaCache.set(id, meta);
             return meta;
         }
@@ -153,7 +114,7 @@
                 const res = await fetch(url, isBearer ? {headers: {Authorization: `Bearer ${tmdbTok}`}} : {});
                 if (res.ok) {
                     const data = await res.json();
-                    const meta = {imdb_id: data.imdb_id || '', runtime: data.runtime || movie?.runtime || 0};
+                    const meta = {imdb_id: data.imdb_id || '', runtime: data.runtime || playerMovie?.runtime || 0};
                     resolvedMetaCache.set(id, meta);
                     return meta;
                 }
@@ -161,7 +122,7 @@
             }
         }
 
-        const fallback = {imdb_id: '', runtime: cached?.runtime || movie?.runtime || 0};
+        const fallback = {imdb_id: '', runtime: cached?.runtime || playerMovie?.runtime || 0};
         resolvedMetaCache.set(id, fallback);
         return fallback;
     }
@@ -247,6 +208,7 @@
         t.textContent = msg || '';
         t.hidden = !msg;
         clearTimeout(toastTimer);
+        // a finished message (Resumed, Synced...) goes after 2.2 s; a "working…" message waits for its result but never longer than 8 s
         if (msg) toastTimer = setTimeout(() => t.hidden = true, /…$/.test(msg) ? 8000 : 2200);
     }
 
@@ -339,6 +301,9 @@
     }
 
 // ---- embed mode -----------------------------------------------------------------------------------------------------
+// While the fallback iframe is on screen the bar is hidden (see player-ui.css): the embed has its own controls and
+// ours sat on top of them, swallowing every click. Two things stay reachable in a corner chip, so the viewer is never
+// stuck with no way out: the server list, and a way back to our own player.
     let embedChip = null;
 
     function inEmbed() {
@@ -367,9 +332,8 @@
             back.onclick = e => {
                 e.stopPropagation();
                 hidePlayerMenus();
-                const sources = getSources();
-                const idx = getSourceIdx();
-                window.ruinPlayer?.playSource(sources.length ? Math.min(idx, sources.length - 1) : 0);
+                // no source at all? playSource retries the relay, which is what the viewer is asking for anyway
+                window.ruinPlayer?.playSource(streamSources.length ? Math.min(sourceIndex, streamSources.length - 1) : 0);
             };
             embedChip.append(servers, back);
             box.appendChild(embedChip);
@@ -656,6 +620,8 @@
         return true;
     }
 
+    // Which daemon owns the sprites: the relay builds them from a provider stream it already resolved, but a local
+    // file has no relay job at all, so it asks the library - which cuts them from the file on disk.
     function trickOrigin(src) {
         if (src?.local) {
             try {
@@ -666,14 +632,15 @@
         return getRelayBase();
     }
 
+    // The library indexes files per title, not per source list position, so the index has to come out of the URL.
     function trickFileIndex(src) {
         const hit = /\/(?:file|stream)\/\d+\/(\d+)/.exec(src?.url || '');
-        return hit ? hit[1] : String(getSourceIdx());
+        return hit ? hit[1] : String(sourceIndex);
     }
 
     async function startSheets() {
-        const src = getSources()?.[getSourceIdx()];
-        const movieId = getActiveMovie()?.id;
+        const src = streamSources?.[sourceIndex];
+        const movieId = playerMovie?.id;
         if (!src?.url || !movieId) return;
         if (thumb.trickId === movieId) return;
         thumb.trickId = movieId;
@@ -744,6 +711,7 @@
             try {
                 const res = await fetch(`${base}/trick?${q}`);
                 if (!res.ok) {
+                    // nothing to build from right now; let a later hover try again instead of latching the movie
                     thumb.trickId = null;
                     return;
                 }
@@ -778,7 +746,6 @@
             }
             await new Promise(r => setTimeout(r, 2500));
         }
-        if (token === thumb.trickToken) thumb.trickId = null;
     }
 
 // ---- the video fallback ---------------------------------------------------------------------------------------------
@@ -848,7 +815,7 @@
     }
 
     function ensureThumb() {
-        const src = getSources()?.[getSourceIdx()];
+        const src = streamSources?.[sourceIndex];
         const url = src?.url;
         const tv = pel('pl-thumb-video');
         if (!url || !tv || thumb.sprite) return false;
@@ -961,13 +928,12 @@
     let nativeSubIndex = -1;
 
     function handleServerSwitch() {
-        const activeHls = getActiveHls();
         syncToken++;
         extSub = null;
         nativeSubIndex = -1;
         subsLoadedForKey = '';
         clearExtTrack();
-        if (activeHls) activeHls.subtitleTrack = -1;
+        if (hls) hls.subtitleTrack = -1;
         store.set('subsOn', false);
         paintSubsButton();
         buildSubtitleMenu();
@@ -996,10 +962,9 @@
     function enforceSingleSubTrack() {
         const v = vid();
         if (!v) return;
-        const activeHls = getActiveHls();
         const own = v.querySelector('track[data-ext]')?.track || null;
         if (extSub) {
-            if (activeHls && activeHls.subtitleTrack !== -1) activeHls.subtitleTrack = -1;
+            if (hls && hls.subtitleTrack !== -1) hls.subtitleTrack = -1;
             [...v.textTracks].forEach(t => {
                 if (t === own) {
                     if (t.mode !== 'showing') t.mode = 'showing';
@@ -1013,7 +978,7 @@
     function clearExtTrack() {
         const v = vid();
         if (v) {
-            v.querySelectorAll('track[data-ext]').forEach(t => t.remove());
+            v.querySelectorAll('track[data-ext], track[data-ruin-ext]').forEach(t => t.remove());
         }
         if (extSubBlobUrl) {
             URL.revokeObjectURL(extSubBlobUrl);
@@ -1032,11 +997,8 @@
 
 // ---- subtitle timing & whole-movie affine sync -------------------------------------------------------------------------
     const offKey = () => {
-        const sources = getSources();
-        const idx = getSourceIdx();
-        const movie = getActiveMovie();
-        const provider = sources?.[idx]?.provider || sources?.[idx]?.label || idx || 0;
-        return `subSync.${movie ? movie.id : 0}.${provider}.${extSub ? extSub.key : ''}`;
+        const provider = streamSources?.[sourceIndex]?.provider || streamSources?.[sourceIndex]?.label || sourceIndex || 0;
+        return `subSync.${playerMovie ? playerMovie.id : 0}.${provider}.${extSub ? extSub.key : ''}`;
     };
     let subOffset = 0;
     let subScale = 1.0;
@@ -1146,12 +1108,10 @@
     }
 
     async function fetchFullReferenceVtt() {
-        const src = getSources()?.[getSourceIdx()];
-        const activeHls = getActiveHls();
-        const movie = getActiveMovie();
+        const src = streamSources?.[sourceIndex];
         const refPlaylistUrl = src?.meta?.refSubProxied
-            || (activeHls?.subtitleTracks || []).find(t => /^en/i.test(t.lang || '') || /english/i.test(t.name || ''))?.url
-            || activeHls?.subtitleTracks?.[0]?.url;
+            || (hls?.subtitleTracks || []).find(t => /^en/i.test(t.lang || '') || /english/i.test(t.name || ''))?.url
+            || hls?.subtitleTracks?.[0]?.url;
 
         let embeddedVtt = null;
         if (refPlaylistUrl) {
@@ -1181,12 +1141,12 @@
             return embeddedVtt;
         }
 
-        if (!movie || /^en/i.test(extSub?.lang || '')) return null;
+        if (!playerMovie || /^en/i.test(extSub?.lang || '')) return null;
         try {
             const relayBase = getRelayBase();
             const meta = await resolveMovieMeta();
             const q = new URLSearchParams({
-                id: movie.id,
+                id: playerMovie.id,
                 lang: 'en',
                 secs: String(src?.seconds || 0),
                 runtime: String((meta.runtime || 0) * 60),
@@ -1209,7 +1169,6 @@
 
     async function autoSync() {
         const token = ++syncToken, v = vid();
-        const activeHls = getActiveHls();
         if (!extSub) return false;
 
         let refStarts = [];
@@ -1221,10 +1180,10 @@
 
         if (refVtt) {
             refStarts = vttStarts(refVtt);
-        } else if (activeHls && activeHls.subtitleTracks?.length) {
-            const tracks = activeHls.subtitleTracks;
+        } else if (hls && hls.subtitleTracks?.length) {
+            const tracks = hls.subtitleTracks;
             const ref = tracks.findIndex(t => /^en/i.test(t.lang || '') || /english/i.test(t.name || ''));
-            activeHls.subtitleTrack = ref >= 0 ? ref : 0;
+            hls.subtitleTrack = ref >= 0 ? ref : 0;
             for (let i = 0; i < 10 && token === syncToken; i++) {
                 await new Promise(r => setTimeout(r, 800));
                 const own = v.querySelector('track[data-ext]')?.track;
@@ -1235,7 +1194,7 @@
                 refStarts = [...(tt.cues || [])].map(c => c.startTime).sort((a, b) => a - b);
                 if (refStarts.length >= 30) break;
             }
-            if (activeHls) activeHls.subtitleTrack = -1;
+            if (hls) hls.subtitleTrack = -1;
             enforceSingleSubTrack();
             if (token !== syncToken) return false;
         }
@@ -1246,6 +1205,9 @@
         }
 
         const subStarts = vttStarts(extSub.vtt);
+        // solveAffineSync is the one place a typo can strand the whole flow: autoSync is async and every
+        // caller chains .then without a catch, so a throw here left the toast up forever and no subtitle
+        // applied. Fail into the "low confidence" path instead.
         let fit = null;
         try {
             fit = solveAffineSync(refStarts, subStarts);
@@ -1302,12 +1264,11 @@
 
     function turnSubsOff() {
         const v = vid();
-        const activeHls = getActiveHls();
         syncToken++;
         extSub = null;
         nativeSubIndex = -1;
         clearExtTrack();
-        if (activeHls) activeHls.subtitleTrack = -1;
+        if (hls) hls.subtitleTrack = -1;
         [...v.textTracks].forEach(x => x.mode = 'disabled');
         store.set('subsOn', false);
         paintSubsButton();
@@ -1315,8 +1276,7 @@
 
     function subsActive() {
         const v = vid();
-        const activeHls = getActiveHls();
-        return !!extSub || nativeSubIndex >= 0 || (activeHls && activeHls.subtitleTrack >= 0)
+        return !!extSub || nativeSubIndex >= 0 || (hls && hls.subtitleTrack >= 0)
             || [...(v?.textTracks || [])].some(t => t.mode === 'showing');
     }
 
@@ -1326,12 +1286,11 @@
 
     function selectEmbeddedSubtitle(index) {
         const v = vid();
-        const activeHls = getActiveHls();
         syncToken++;
         extSub = null;
         nativeSubIndex = -1;
         clearExtTrack();
-        if (activeHls) activeHls.subtitleTrack = index;
+        if (hls) hls.subtitleTrack = index;
         [...(v?.textTracks || [])].forEach((x, i) => {
             x.mode = i === index ? 'showing' : 'disabled';
         });
@@ -1342,12 +1301,11 @@
 
     function selectNativeSubtitle(index) {
         const v = vid();
-        const activeHls = getActiveHls();
         if (!v) return;
         syncToken++;
         extSub = null;
         clearExtTrack();
-        if (activeHls) activeHls.subtitleTrack = -1;
+        if (hls) hls.subtitleTrack = -1;
         nativeSubIndex = index;
         [...v.textTracks].forEach((x, i) => {
             x.mode = i === index ? 'showing' : 'disabled';
@@ -1395,10 +1353,9 @@
                 buildSubtitleMenu();
                 pToast(`Loaded (${cuesCount} cues): ${extSub.label}`);
 
-                const activeHls = getActiveHls();
                 const hasRef = Boolean(
-                    getSources()?.[getSourceIdx()]?.meta?.hasRefSubs
-                    || (activeHls && activeHls.subtitleTracks?.length)
+                    streamSources?.[sourceIndex]?.meta?.hasRefSubs
+                    || (hls && hls.subtitleTracks?.length)
                     || !/^en/i.test(extSub.lang || '')
                 );
                 const hasNonZeroSaved = subOffset !== 0 || Math.abs(subScale - 1) > 1e-5;
@@ -1422,14 +1379,11 @@
     }
 
     async function searchSubtitles() {
-        const movie = getActiveMovie();
-        if (!movie?.id) return;
-        const idx = getSourceIdx();
         subsStatus = 'Matching subtitles to active source…';
         subsResults = [];
         buildSubtitleMenu();
         try {
-            const activeSrc = getSources()?.[idx];
+            const activeSrc = streamSources?.[sourceIndex];
             const meta = await resolveMovieMeta();
             const relayBase = getRelayBase();
             const relTags = [
@@ -1437,7 +1391,7 @@
                 activeSrc?.direct || ''
             ].filter(Boolean).join(' ');
             const q = new URLSearchParams({
-                id: movie.id,
+                id: playerMovie.id,
                 lang: subsLang,
                 secs: String(activeSrc?.seconds || 0),
                 runtime: String((meta.runtime || 0) * 60),
@@ -1446,7 +1400,7 @@
             if (meta.imdb_id) q.set('imdb', meta.imdb_id);
             if (PLAYER_UI.subsKey) q.set('key', PLAYER_UI.subsKey);
 
-            subsLoadedForKey = `${movie.id}:${idx}:${subsLang}`;
+            subsLoadedForKey = `${playerMovie.id}:${sourceIndex}:${subsLang}`;
 
             const ctl = new AbortController();
             const abortTimer = setTimeout(() => ctl.abort(), 90000);
@@ -1454,7 +1408,7 @@
             clearTimeout(abortTimer);
             if ((!r || !r.ok) && PLAYER_UI.subsKey) {
                 const directQ = new URLSearchParams({
-                    id: meta.imdb_id || movie.id,
+                    id: meta.imdb_id || playerMovie.id,
                     language: subsLang,
                     format: 'srt',
                     source: 'all',
@@ -1506,10 +1460,9 @@
             hidePlayerMenus();
             pToast(`Subtitles: ${extSub.label}`);
 
-            const activeHls = getActiveHls();
             const hasRef = Boolean(
-                getSources()?.[getSourceIdx()]?.meta?.hasRefSubs
-                || (activeHls && activeHls.subtitleTracks?.length)
+                streamSources?.[sourceIndex]?.meta?.hasRefSubs
+                || (hls && hls.subtitleTracks?.length)
                 || !/^en/i.test(extSub.lang || '')
             );
             const hasNonZeroSaved = subOffset !== 0 || Math.abs(subScale - 1) > 1e-5;
@@ -1536,10 +1489,6 @@
         const menu = pel('pl-subs'), btn = pel('pl-subs-btn');
         if (!menu) return;
         if (btn) btn.hidden = false;
-        const activeHls = getActiveHls();
-        const sources = getSources();
-        const idx = getSourceIdx();
-        const movie = getActiveMovie();
         const el = (tag, cls, text) => {
             const e = document.createElement(tag);
             if (cls) e.className = cls;
@@ -1561,12 +1510,12 @@
             hidePlayerMenus();
             buildSubtitleMenu();
         }));
-        const native = sources?.[idx]?.subtitles || [];
+        const native = streamSources?.[sourceIndex]?.subtitles || [];
         native.forEach((t, i) => parts.push(opt(t.label || t.lang || `Track ${i + 1}`, !extSub && nativeSubIndex === i, () => {
             selectNativeSubtitle(i);
         })));
-        const tracks = activeHls ? activeHls.subtitleTracks : [];
-        tracks.forEach((t, i) => parts.push(opt(t.name || t.lang || `Track ${i + 1}`, !extSub && activeHls.subtitleTrack === i, () => {
+        const tracks = hls ? hls.subtitleTracks : [];
+        tracks.forEach((t, i) => parts.push(opt(t.name || t.lang || `Track ${i + 1}`, !extSub && hls.subtitleTrack === i, () => {
             selectEmbeddedSubtitle(i);
         })));
         if (extSub) {
@@ -1615,7 +1564,7 @@
         parts.push(opt('↑ Load subtitle file (.srt / .vtt)', false, () => loadLocalSubtitleFile()));
         parts.push(opt(subsOpen ? '▾ Find subtitles' : '▸ Find subtitles', false, () => {
             subsOpen = !subsOpen;
-            const currentKey = `${movie?.id}:${idx}:${subsLang}`;
+            const currentKey = `${playerMovie?.id}:${sourceIndex}:${subsLang}`;
             if (subsOpen && (!subsResults.length || subsLoadedForKey !== currentKey)) searchSubtitles();
             else buildSubtitleMenu();
         }));
@@ -1652,8 +1601,76 @@
         paintSubsButton();
     }
 
-// ---- a file on disk that is the wrong film ---------------------------------------------------------------------------
-    let grabJob = null, grabTimer = null, grabText = 'Fetch a fresh copy', grabBusy = false, grabMisses = 0;
+// ---- marking a copy as a recording ----------------------------------------------------------------------------------
+// relay.py keeps this per title + provider (cam_marks.json) and ranks a marked copy dead last. A CAM token in the URL
+// can be read by a guess; whether a file is a phone pointed at a screen cannot. This is how the viewer says so, and how
+// a wrong guess gets corrected. The relay's own guess arrives as meta.cam_guess and is shown with a question mark, so a
+// guess is never mistaken for a certainty.
+    const CAM_TOKENS = ['hdcam', 'camrip', 'hqcam', 'cam', 'telesync', 'telecine', 'hdts', 'dvdscr', 'screener', 'workprint', 'pdvd'];
+
+    function looksCam(src) {
+        const blob = `${src?.direct || ''} ${(src?.meta?.tags || []).join(' ')}`.toLowerCase();
+        if (CAM_TOKENS.some(token => blob.includes(token))) return true;
+        return /(?:^|[\s\-_.\[(])ts(?:[\s\-_.\])]|$)/.test(blob);
+    }
+
+    function firstDigitalIndex(except) {
+        return streamSources.findIndex((s, i) => i !== except && !s.meta?.cam && !isLocal(s));
+    }
+
+    async function markSource(index, cam) {
+        const src = streamSources?.[index], movieId = playerMovie?.id;
+        if (!src || !movieId) return;
+        const before = {cam: src.meta?.cam, mark: src.meta?.cam_mark};
+
+        // the row changes at once; the relay is told next
+        src.meta = src.meta || {};
+        if (cam) {
+            src.meta.cam = true;
+            src.meta.cam_mark = true;
+        } else {
+            delete src.meta.cam_mark;
+            delete src.meta.cam_guess;
+            if (looksCam(src)) src.meta.cam = true; else delete src.meta.cam;
+        }
+        buildServerMenu();
+
+        const q = new URLSearchParams({id: movieId, p: src.provider || '', cam: cam ? '1' : '0'});
+        let ok = false;
+        try {
+            const res = await fetch(`${getRelayBase()}/mark?${q}`);
+            ok = res.ok;
+        } catch { /* relay unreachable */
+        }
+
+        if (!ok) {
+            if (before.mark) src.meta.cam_mark = true; else delete src.meta.cam_mark;
+            if (before.cam) src.meta.cam = true; else if (!src.meta.cam_mark) delete src.meta.cam;
+            buildServerMenu();
+            pToast('Could not save that mark. Is the relay running?');
+            return;
+        }
+
+        if (!cam) {
+            pToast(`${src.label} marked as digital.`);
+            return;
+        }
+        pToast(`${src.label} marked as a recording.`);
+        // the copy on screen is the one that was just called out: leave it if anything digital is left
+        if (index === sourceIndex) {
+            const better = firstDigitalIndex(index);
+            if (better > -1) {
+                pToast('Switching to a digital copy.');
+                window.ruinPlayer?.playSource(better);
+            }
+        }
+    }
+
+// ---- grabbing a digital copy (grab.py) ------------------------------------------------------------------------------
+// The last resort in the server menu: nothing that is playing is worth watching, so fetch a file. grab.py resolves the
+// IMDb id to a YTS torrent and files the video into the library folder itself, which is why the sources are re-resolved
+// on completion instead of the file being streamed from staging.
+    let grabJob = null, grabTimer = null, grabText = 'Get a digital copy', grabBusy = false;
 
     function paintGrab(text, busy) {
         grabText = text;
@@ -1664,23 +1681,22 @@
         btn.disabled = busy;
     }
 
-    async function startGrab(force = true) {
-        const movieId = getActiveMovie()?.id;
+    async function startGrab() {
+        const movieId = playerMovie?.id;
         if (!movieId || grabBusy) return;
-        grabMisses = 0;
         paintGrab('Looking for a torrent…', true);
         try {
             const res = await fetch(`${getGrabBase()}/grab`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({tmdb: Number(movieId), force: force ? 1 : 0}),
+                body: JSON.stringify({tmdb: Number(movieId)}),
             });
             const job = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(job.error || `HTTP ${res.status}`);
             grabJob = job;
             pollGrab();
         } catch (err) {
-            paintGrab('Fetch a fresh copy', false);
+            paintGrab('Get a digital copy', false);
             pToast(`Grab: ${err.message || 'failed'}`);
         }
     }
@@ -1690,45 +1706,30 @@
         if (!grabJob?.id) return;
         let job = null;
         try {
-            const res = await fetch(`${getGrabBase()}/queue?all=1`);
+            const res = await fetch(`${getGrabBase()}/queue`);
             const list = await res.json();
             job = (Array.isArray(list) ? list : []).find(j => j.id === grabJob.id) || null;
         } catch { /* grab not running */
         }
         if (!job) {
-            if (++grabMisses > 10) {
-                paintGrab('Fetch a fresh copy', false);
-                grabJob = null;
-                return;
-            }
             grabTimer = setTimeout(pollGrab, 4000);
             return;
         }
-        grabMisses = 0;
-        if (job.state === 'done' || job.state === 'present') {
-            paintGrab('Fetch a fresh copy', false);
-            pToast(job.state === 'present' ? 'Already in the library.' : `Filed: ${(job.path || 'done').split(/[\\/]/).pop()}`);
+        if (job.state === 'done') {
+            paintGrab('Filed. Reloading sources…', false);
+            pToast(`Filed: ${(job.path || 'done').split(/[\\/]/).pop()}`);
             grabJob = null;
-            try {
-                await fetch(`${getLibraryBase()}/scan`, {method: 'POST'});
-            } catch { /* library down: resolveStreams retries anyway */
-            }
             window.ruinPlayer?.resolveStreams?.();
             return;
         }
-        if (job.state === 'failed' || job.state === 'cancelled' || job.state === 'wrong' || job.state === 'skipped') {
-            paintGrab('Fetch a fresh copy', false);
+        if (job.state === 'failed' || job.state === 'cancelled') {
+            paintGrab('Get a digital copy', false);
             pToast(`Grab ${job.state}${job.error ? ': ' + job.error : ''}`);
             grabJob = null;
             return;
         }
-        if (job.state === 'queued') {
-            paintGrab('Queued — nothing proven yet', false);
-            grabTimer = setTimeout(pollGrab, 8000);
-            return;
-        }
-        paintGrab(job.state === 'downloading' || job.state === 'fetching'
-            ? `Working ${job.progress_pct}%${job.speed_h ? ' · ' + job.speed_h : ''}`
+        paintGrab(job.state === 'downloading'
+            ? `Downloading ${job.progress_pct}%${job.speed_h ? ' · ' + job.speed_h : ''}`
             : job.state === 'handed_off' ? 'Magnet handed over — it files itself'
                 : 'Working…', true);
         grabTimer = setTimeout(pollGrab, 2500);
@@ -1743,47 +1744,69 @@
         const menu = pel('pl-servers');
         if (!menu) return;
         const sel = pel('server-switcher');
-        const sources = getSources();
-        const currentIdx = getSourceIdx();
-        const movie = getActiveMovie();
         const parts = [];
-        if (!sources.length) {
+        if (!streamSources.length) {
             const n = document.createElement('div');
             n.className = 'pl-note';
             n.textContent = 'No servers answered yet.';
             parts.push(n);
         }
+        // Local files first, then digital, then recordings. The order is for the MENU only: sourceIndex and the hidden
+        // select keep script.js's own order, so the row the viewer is playing never shifts under them.
         const rankOf = src => isLocal(src) ? 0 : src.meta?.cam ? 2 : 1;
-        const order = sources.map((_, i) => i).sort((a, b) =>
-            (rankOf(sources[a]) - rankOf(sources[b])) || (a - b));
+        const order = streamSources.map((_, i) => i).sort((a, b) =>
+            (rankOf(streamSources[a]) - rankOf(streamSources[b])) || (a - b));
 
         order.forEach(i => {
-            const src = sources[i];
+            const src = streamSources[i];
             const local = isLocal(src);
             const row = document.createElement('div');
             row.className = 'pl-server-row';
 
             const b = document.createElement('button');
             b.type = 'button';
-            b.className = 'pl-opt' + (i === currentIdx ? ' on' : '');
-            const tag = local ? '' : src.meta?.cam ? 'CAM · ' : '';
-            const res = local ? '' : src.meta?.height ? `${src.meta.height}p · ` : '';
+            b.className = 'pl-opt' + (i === sourceIndex ? ' on' : '');
+            // a cam recording is spelled out: 1080p CAM reads worse than 480p digital, so the height alone misleads
+            const tag = local ? 'LOCAL · '
+                : src.meta?.cam_mark ? 'CAM (marked) · '
+                    : src.meta?.cam_guess ? 'CAM? · '
+                        : src.meta?.cam ? 'CAM · ' : '';
+            const res = src.meta?.height ? `${src.meta.height}p · ` : '';
             const kind = src.kind === 'mp4' ? 'MP4 · ' : '';
             b.textContent = `${src.label} · ${tag}${res}${kind}${fmtTime(src.seconds)}`;
             b.classList.toggle('is-cam', !local && !!src.meta?.cam);
+            if (local) b.style.color = '#8fd6a0';
             b.onclick = e => {
                 e.stopPropagation();
                 hidePlayerMenus();
-                if (i === getSourceIdx() || !sel) return;
                 handleServerSwitch();
+                if (i === sourceIndex || !sel) return;
                 sel.value = String(i);
                 sel.onchange && sel.onchange();
             };
             row.appendChild(b);
+
+            // a file on this machine is digital by definition, so only network sources take the chip
+            if (!local) {
+                const mark = document.createElement('button');
+                mark.type = 'button';
+                mark.className = 'pl-mark' + (src.meta?.cam_mark ? ' on' : '');
+                mark.textContent = src.meta?.cam_mark ? '✓' : 'CAM';
+                mark.title = src.meta?.cam_mark
+                    ? 'Marked as a recording — tap to clear'
+                    : 'Mark this copy as a recording of a cinema screen';
+                mark.setAttribute('aria-label', mark.title);
+                mark.setAttribute('aria-pressed', String(!!src.meta?.cam_mark));
+                mark.onclick = e => {
+                    e.stopPropagation();
+                    markSource(i, !src.meta?.cam_mark);
+                };
+                row.appendChild(mark);
+            }
             parts.push(row);
         });
 
-        if (movie?.id) {
+        if (playerMovie?.id) {
             const grab = document.createElement('div');
             grab.style.cssText = 'display:flex;padding:6px 2px 2px';
             const gbtn = document.createElement('button');
@@ -1804,36 +1827,22 @@
 
         const note = document.createElement('div');
         note.className = 'pl-note';
-        note.textContent = 'Every copy is checked against the runtime and the film title before it is played. '
-            + 'CAM = recorded off a cinema screen; it is replaced automatically once a digital copy exists.';
+        note.textContent = 'CAM = recorded off a cinema screen. Tap CAM to mark a copy, so it sinks below the digital ones.';
         parts.push(note);
 
         menu.replaceChildren(...parts);
     }
 
 // ---- quality (hls.js levels of the source that is playing, not the source list) -------------------------------------
-    const wiredHlsInstances = new WeakSet();
-
-    function wireHlsQuality() {
-        const activeHls = getActiveHls();
-        if (!activeHls || typeof Hls === 'undefined') {
-            buildQualityMenu();
-            return;
-        }
-        if (!wiredHlsInstances.has(activeHls)) {
-            wiredHlsInstances.add(activeHls);
-            activeHls.on(Hls.Events.MANIFEST_PARSED, buildQualityMenu);
-            activeHls.on(Hls.Events.LEVEL_SWITCHED, updateQualityUI);
-        }
-        buildQualityMenu();
-    }
-
+    // hls.js only fills level.height/width when the variant playlist carries a RESOLUTION attribute. Several
+    // sources leave it out, which is exactly where the old "?p" came from. Read the attribute directly instead.
     function levelHeight(level) {
         if (!level) return 0;
         const fromAttrs = Number((level.attrs?.RESOLUTION || '').split('x')[1]) || 0;
         return level.height || fromAttrs || 0;
     }
 
+    // Never print a bare "?": resolution first, then width, then bitrate, then the track number.
     function levelLabel(level, index) {
         const h = levelHeight(level);
         if (h) return `${h}p`;
@@ -1844,6 +1853,9 @@
         return `Track ${index + 1}`;
     }
 
+    // A rendition is audio-only only when it is provably so: it declares an audio codec and no video codec.
+    // A master with no CODECS or RESOLUTION attributes leaves both empty, and those levels are real video,
+    // so they have to survive. Calling them audio-only is what made the gear vanish on some sources.
     function isAudioLevel(level) {
         if (!level) return true;
         if (level.videoCodec) return false;
@@ -1851,6 +1863,7 @@
         return Boolean(level.audioCodec);
     }
 
+    // The gear keeps its icon; this only ever fills the small readout beside it.
     function setQualityButtonText(text) {
         const btn = pel('pl-quality-btn');
         if (!btn) return;
@@ -1864,33 +1877,36 @@
         btn.title = `Quality: ${text}`;
     }
 
+    // On Auto the readout names the quality actually in use, and it follows every downgrade or upgrade live
+    // ("Auto · 1080p" becomes "Auto · 720p" the moment the switcher drops). Picking a level shows that level alone.
     function activeQualityText() {
-        const activeHls = getActiveHls();
-        const level = activeHls && activeHls.currentLevel >= 0 ? activeHls.levels[activeHls.currentLevel] : null;
-        if (activeHls?.autoLevelEnabled) return level ? `Auto · ${levelLabel(level, activeHls.currentLevel)}` : 'Auto';
-        return level ? levelLabel(level, activeHls.currentLevel) : 'Auto';
+        const level = hls && hls.currentLevel >= 0 ? hls.levels[hls.currentLevel] : null;
+        if (hls?.autoLevelEnabled) return level ? `Auto · ${levelLabel(level, hls.currentLevel)}` : 'Auto';
+        return level ? levelLabel(level, hls.currentLevel) : 'Auto';
     }
 
+    // Keeps the gear and the tick marks in step with what is actually playing, including automatic switches.
     function updateQualityUI() {
         const menu = pel('pl-quality');
-        const activeHls = getActiveHls();
-        if (!activeHls) return;
+        if (!hls) return;
         setQualityButtonText(activeQualityText());
         if (!menu) return;
-        const active = activeHls.autoLevelEnabled ? -1 : activeHls.currentLevel;
+        const active = hls.autoLevelEnabled ? -1 : hls.currentLevel;
         menu.querySelectorAll('.pl-opt').forEach(b => b.classList.toggle('on', Number(b.dataset.level) === active));
     }
 
     function buildQualityMenu() {
         const menu = pel('pl-quality'), btn = pel('pl-quality-btn');
-        const activeHls = getActiveHls();
         if (!menu) return;
+        // highest first, and only renditions that really carry picture
         const indices = [];
-        if (activeHls?.levels?.length) {
-            for (let i = activeHls.levels.length - 1; i >= 0; i--) if (!isAudioLevel(activeHls.levels[i])) indices.push(i);
-            if (!indices.length) for (let i = activeHls.levels.length - 1; i >= 0; i--) indices.push(i);
+        if (hls) {
+            for (let i = hls.levels.length - 1; i >= 0; i--) if (!isAudioLevel(hls.levels[i])) indices.push(i);
+            // a master with no CODECS/RESOLUTION makes every level look audio-only: keep them all rather than hide the gear
+            if (!indices.length) for (let i = hls.levels.length - 1; i >= 0; i--) indices.push(i);
         }
-        if (!activeHls || indices.length < 2) {
+        // one rendition and nothing to choose: a gear labelled "Track 1" is just clutter
+        if (!hls || indices.length < 2) {
             if (btn) {
                 btn.hidden = true;
                 btn.querySelector('.pl-quality-label')?.remove();
@@ -1907,15 +1923,15 @@
             b.dataset.level = String(level);
             b.textContent = label;
             b.onclick = () => {
-                const h = getActiveHls();
-                if (h) h.currentLevel = level;
+                if (hls) hls.currentLevel = level;
                 updateQualityUI();
                 hidePlayerMenus();
             };
             return b;
         };
 
-        menu.replaceChildren(opt('Auto', -1), ...indices.map(i => opt(levelLabel(activeHls.levels[i], i), i)));
+        // the real level index rides on the button so updateQualityUI can mark the right one
+        menu.replaceChildren(opt('Auto', -1), ...indices.map(i => opt(levelLabel(hls.levels[i], i), i)));
         updateQualityUI();
     }
 
@@ -1924,6 +1940,8 @@
         if (e.ctrlKey || e.metaKey || e.altKey) return;
         if (/^(input|textarea|select)$/i.test(document.activeElement?.tagName) && document.activeElement.id !== 'pl-seek') return;
         if (document.activeElement?.isContentEditable) return;
+        // In an embed the picture belongs to someone else's player: our shortcuts would act on a <video> with no source
+        // and quietly do nothing visible. Escape stays, so a menu can still be dismissed.
         if (inEmbed()) {
             if (e.key === 'Escape') hidePlayerMenus();
             return;
@@ -2035,7 +2053,13 @@
         uiBound = true;
         buildControls(box);
         buildSpeedMenu();
-        wireHlsQuality();
+
+        if (!v.crossOrigin) {
+            try {
+                v.crossOrigin = 'anonymous';
+            } catch (e) { /* already loaded; harmless */
+            }
+        }
 
         const on = (id, fn) => {
             const el = pel(id);
@@ -2052,7 +2076,6 @@
         on('pl-volume', e => setVolume(Number(e.target.value), false));
         on('pl-quality-btn', e => {
             e.stopPropagation();
-            buildQualityMenu();
             togglePlayerMenu('pl-quality');
         });
         on('pl-subs-btn', e => {
@@ -2112,10 +2135,8 @@
 
         v.addEventListener('play', () => {
             pel('pl-play').innerHTML = PI.pause;
-            const big = pel('pl-bigplay');
-            if (big) big.innerHTML = PI.play;
+            pel('pl-bigplay').innerHTML = PI.play;
             box.classList.add('playing');
-            wireHlsQuality();
             wakePlayer();
         });
         v.addEventListener('pause', () => {
@@ -2130,7 +2151,6 @@
         v.addEventListener('emptied', () => {
             resetPreview();
             handleServerSwitch();
-            buildQualityMenu();
         });
         v.addEventListener('volumechange', paintVolume);
         v.addEventListener('ratechange', () => {
@@ -2144,7 +2164,6 @@
         v.textTracks.addEventListener('change', enforceSingleSubTrack);
         v.addEventListener('loadedmetadata', () => {
             v.playbackRate = store.get('speed', 1);
-            wireHlsQuality();
             ensureThumb();
             startSheets();
             if (extSub) {
@@ -2196,12 +2215,10 @@
             box.classList.toggle('is-full', !!document.fullscreenElement);
         });
 
+        // script.js only flips the "embed" class; this file follows it instead of script.js having to know about the UI
         new MutationObserver(refreshEmbedUi).observe(box, {attributes: true, attributeFilter: ['class']});
         refreshEmbedUi();
 
-        if (typeof prevPlayerKeys === 'function' && prevPlayerKeys !== playerKeys) {
-            document.removeEventListener('keydown', prevPlayerKeys);
-        }
         document.addEventListener('keydown', playerKeys);
         document.addEventListener('click', hidePlayerMenus);
     }
@@ -2212,15 +2229,5 @@
         return open;
     }
 
-    Object.assign(window, {
-        bindPlayerControls,
-        playerKeys,
-        pToast,
-        togglePlayerMenu,
-        hidePlayerMenus,
-        buildServerMenu,
-        buildSubtitleMenu,
-        buildQualityMenu,
-        updateQualityUI,
-    });
+    Object.assign(window, {bindPlayerControls, playerKeys, pToast, togglePlayerMenu, hidePlayerMenus, buildServerMenu});
 })();

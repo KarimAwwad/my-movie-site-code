@@ -1,0 +1,34 @@
+{
+  "client_id": "1058556344896-l7jbar4cjlbctmb4msaogq021ldfj193.apps.googleusercontent.com",
+  "client_secret": "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",
+  "accounts": [
+    {
+      "email": "gs1506898@gmail.com",
+      "refresh_token": "1//03ztuzZ2lr6HgCgYIARAAGAMSSAF-L9IruE8drXGNpgcPhZfflMWvZp_aA4m7sXzCw8I3bkmT48SIRC0kHVfjtWip8s6_qUOKAKYSzOyX1ZEV4fvBVe_JepShxg"
+    },
+    {
+      "email": "ruinhandofdarkness@gmail.com",
+      "refresh_token": "1//03jqBOxXuNvgeCgYIARAAGAMSNwF-L9Irw1Mpf3o8pSTKipSrDE1e040Yp6f6sE2a39FfB71h6LrFXHGdcr4ZJ0D2oBEG9GdQV9Y"
+    },
+    {
+      "email": "ruinedheart8@gmail.com",
+      "refresh_token": "1//03-nzizI_wbCVCgYIARAAGAMSSQF-L9IrOZ8Hmz9cDrfgUejnJmZISB30sR4mHMc--I6vKidsODUOuNrv84UZd37z3_8ErcJJE6SKPETkK3OW4H7h9zG1mv51-GI"
+    },
+    {
+      "email": "vortexnyx4@gmail.com",
+      "refresh_token": "1//03x9UZ8WhYu2YCgYIARAAGAMSSQF-L9IrxNWpKur7aTr4K0qCCsVy-3JvBu4pwJBa3J7zDkIVQltB8MaC_niOMpHIkZG0p29o1LoYB-VZk-fXGbqvCFzlnPiwoX4"
+    },
+    {
+      "email": "ruinedworld62@gmail.com",
+      "refresh_token": "1//03fKP-o7S4ZsTCgYIARAAGAMSNwF-L9Irf5kUcpWocwC9RJKdBGUA7LTcMpaTEktiW1s_rCNUwxvgYJ2d0nuREs5pePcPnrCaXLE"
+    },
+    {
+      "email": "ruinthedestroyer8@gmail.com",
+      "refresh_token": "1//031U1E2Rg1tQwCgYIARAAGAMSNwF-L9IrrvX2HLX2ar3K4242rRXry8zUjgesRUjhNKs3QnxRwPWipxho-uL9TTX5j-f212Ib-B8"
+    },
+    {
+      "email": "thesadone587@gmail.com",
+      "refresh_token": "1//031BzJTMTrDKhCgYIARAAGAMSNwF-L9IrnnjrzqKh7jlNxiqzijnZ3fSGfnIXm1GfvCQ2n7H2Nj6dRP_rVSBBN8IUlQ3EENANtSs"
+    }
+  ]
+}
