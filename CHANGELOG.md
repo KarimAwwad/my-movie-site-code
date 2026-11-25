@@ -1,44 +1,26 @@
-# CHANGELOG
+# Changelog
 
-Newest first. One entry per accepted phase or documentation revision.
+## [Unreleased]
+- Phase 2: Preserve all embedded audio streams (original language plus secondary dubbed tracks) across indexing and streaming.
 
-## [Phase 0] 2026-11-25 — documentation baseline — AWAITING OPERATOR REVIEW
+## [1.5.0] — 2026-11-25
+### Added
+- Hard `1080p` quality ceiling (`max_quality`) removing upward fallback to `2160p` (4K) while retaining `720p` fallback.
+- Priority boost for `Unrated`, `Extended`, `Uncut`, and `Director's Cut` releases alongside an asymmetric runtime window (`-10 min` short / `+20 min` long).
+- Original audio language verification (`verify_audio_language`) preserving multi-audio releases containing the original track while rejecting dub-only replacements.
+- Duplicate and already-in-library `/grab` guard (`409` conflict when active in queue or present in `D:\movies\library`, while allowing retries on `failed`/`cancelled` jobs).
+- Restart queue persistence via `D:\movies\staging\jobs.json`.
+- Bonus-clip `.temp` size guard (`<50%` expected size), transient Windows/FDM `WinError 32` move retry logic, hard `min_seeds` (`3`) floor, and concurrent queued disk-space accounting.
+- Expanded `phase1_tests.py` to 24 offline unit tests (`U1`–`U24`) and added `dry_sweep_500.py` (`494/500 = 98.80%` verified).
 
-Added at repository root: `PROJECT_CONTEXT.md`, `ARCHITECTURE.md`,
-`DEVELOPMENT_RULES.md`, `KNOWN_ISSUES.md`, `TEST_RESULTS.md`,
-`CHANGELOG.md`, `DEVELOPMENT_ROADMAP.md`, and `PATCH_NOTES.md`.
+## [1.4.3] — 2026-11-25
+- Added `movies-api.accel.li` as primary YTS API endpoint ahead of `yts.pw` and legacy mirrors.
+- Added exact title + exact release year fallback in `yts_candidates()` when TMDB's IMDb ID is absent on YTS (fixing *Knock at the Cabin (2023)* `tt8272064` vs `tt15679400`).
+- Added unit test `U14` in `phase1_tests.py`.
 
-Seeded from a read-only inspection of `movie site/`, `ruin-stream/`, and
-`ruintv server/`. No application source file changed. Thirteen issues are recorded: two S1 issues (wrong-association risk and
-exposed private credentials), and one S4 candidate.
+## [1.4.2] — 2026-11-25
+- Added `yts.pw` to `YTS_HOSTS` and made `yts_hosts` configurable in `grab.json`.
 
-### Observed baseline before this phase
-
-Undocumented, no automated tests found, and manually verified only. Library:
-12 files, all 12 tagged, 0 unmatched. TMDB key absent at library runtime.
-Supabase and Drive sprite configuration absent. Playback success and association
-accuracy have not been measured.
-
-### Revision r2 — operator review
-
-- Corrected the subtitle-offset issue: the UI implements offset/persistence/
-  auto-sync; the separate shared accessor returns zero, and its consumers are
-  not yet established.
-- Separated the historical Valorant/Insidious incident from the current
-  size-based fallback.
-- Reclassified suspected dead code as a candidate pending caller/runtime review.
-- Changed Phase 0 status to AWAITING OPERATOR REVIEW.
-- Converted documentation verification commands to PowerShell.
-- Split the pre-Phase-0 baseline from the current documented state.
-- Clarified credential exposure and the different role of the Supabase
-  publishable key.
-
-### State after Phase 0 documentation
-
-The application runtime is unchanged. The architecture, known issues, test
-baseline, and roadmap are now documented. No issue was fixed by documentation.
-
-## [pre-Phase 0] — undocumented baseline
-
-`library.py` 1.2.5, `grab.py` 1.3.5, `relay.py`, `worker.js`, and static
-frontend. No project changelog existed before Phase 0.
+## [1.4.1] — 2026-11-24
+- Replaced size-only fallback with pre-download IMDb/year/MB-per-minute gates and post-download `ffprobe` runtime, widescreen resolution, and identity verification.
+- Added `staging/_review` isolation (`needs_review`) with `POST /queue/approve` and `POST /queue/reject`, plus automatic deletion of rejected downloads.

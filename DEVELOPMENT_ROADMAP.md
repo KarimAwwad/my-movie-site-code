@@ -1,69 +1,41 @@
-# DEVELOPMENT_ROADMAP
+# RUIN TV — Development Roadmap
 
-Ordered by risk reduction per unit of work. One phase at a time. Order may be
-revised; scope within an accepted phase may not grow.
+## Phase 0 — Documentation Baseline (Completed)
+- [x] Established repository documentation (`PROJECT_CONTEXT.md`, `ARCHITECTURE.md`, `DEVELOPMENT_RULES.md`, `KNOWN_ISSUES.md`, `TEST_RESULTS.md`, `CHANGELOG.md`, `DEVELOPMENT_ROADMAP.md`, `PATCH_NOTES.md`).
+- [x] Audited existing codebase and cataloged open bugs, security gaps, and architectural debt.
 
-## Phase 0 — documentation baseline (AWAITING OPERATOR REVIEW)
+## Phase 1 — Hardening `grab.py` Movie Acquisition & Full-Cut Verification (Completed — `v1.5.0`)
+**Goal:** Guarantee zero wrong-movie misfiles in `D:\movies\library`, protect bandwidth and data caps on Egyptian internet connections, and ensure full-length original-language releases.
 
-Seven core documents plus `PATCH_NOTES.md` are present at repository root.
-Findings and baselines are recorded. No application source file changed.
+- [x] **Pre-download IMDb & title/year lock:** Query TMDB (`external_ids`, `alternative_titles`) as ground truth; enforce IMDb equality when indexed on YTS, with token/connector-normalized title + exact release year + YTS `runtime` validation when TMDB carries an alternate IMDb ID.
+- [x] **YTS mirror chain:** Prioritize active API endpoints (`movies-api.accel.li`, `yts.pw`, `yts.gg`) ahead of legacy mirrors.
+- [x] **Hard `1080p` quality ceiling & dead-torrent floor:** Strictly cap selection at `max_quality` (`1080p`), removing upward fallback to `2160p` (4K) while retaining `720p` fallback, and enforce a hard `min_seeds` (`3`) floor so `0`-seed torrents fail before FDM opens.
+- [x] **Full-length / uncut release priority:** Boost `Unrated`, `Extended`, `Uncut`, and `Director's Cut` torrents when multiple releases exist, and widen post-download runtime tolerance asymmetrically (`-10 min` short / `+20 min` long) so extended editions pass without relaxing short-clip rejection.
+- [x] **Original audio language gate:** Enforce TMDB `original_language` (English, Korean, Spanish, Japanese, Hindi, etc., with subtitles handling translation). Allow multi-audio files that include the original track (preserving embedded dubs for Phases 2–3) and reject dub-only releases.
+- [x] **Duplicate & already-in-library guard:** Reject `/grab` calls for movies already present in `D:\movies\library` or active in `/queue`, while permitting clean retries on `failed` or `cancelled` jobs.
+- [x] **Queue persistence (`D:\movies\staging\jobs.json`):** Persist active jobs to disk so restarting `grab.py` mid-download still verifies and files completed FDM downloads.
+- [x] **Multi-file torrent & Windows lock resilience:**
+  - Ignore standalone sample/trailer/featurette clips under 50% of expected torrent size while `.temp` holds active downloads.
+  - Treat transient Windows/FDM `WinError 32` file locks on completion as a retry on the next watcher scan rather than a permanent failure.
+  - Subtract expected sizes of active queued jobs from available disk space when checking `min_free_gb`.
+- [x] **Phase 1 sign-off verification:**
+  - `24/24` offline unit tests passing (`phase1_tests.py`).
+  - Live end-to-end grab and playback verified on *Knock at the Cabin (2023)* (`tmdb=631842`) plus live duplicate-library guard (`409` conflict).
+  - Read-only 500-movie `/dry` sweep (`dry_sweep_500.py`) achieved **494/500 (98.80%)** match coverage (`>= 95.0%` gate), with all 6 misses audited and confirmed legitimate.
 
-## Phase 1 — harden local-file adoption (NEXT)
+## Phase 2 — Multi-Audio Track Preservation (Current)
+- [ ] Preserve all embedded audio streams (original language plus secondary dubbed tracks) during ingestion, indexing, and streaming so multi-audio releases remain intact.
 
-Goal: reduce the risk of associating a discovered local video file with the
-wrong pending library item.
-- Require meaningful title evidence before automatic association; file size is
-  corroboration, not identity.
-- Use media duration and other independent metadata as additional checks.
-- Ambiguous candidates must remain pending for review rather than being
-  automatically finalized.
-- Keep the existing library item intact when a candidate is uncertain.
-Exit: the known historical failure case is represented in a test, and current
-candidate handling is verified without claiming that the old incident has
-been reproduced by the current code.
+## Phase 3 — Player Audio Switcher & Seekbar Fix
+- [ ] **Audio track selector:** Add an audio track menu to the web player (mirroring the subtitle selector) to switch between original audio and embedded dub tracks on the fly.
+- [ ] **Seekbar hover vs. playback timestamp fix:** Fix the timeline scrub offset where hovering/clicking a timestamp on the progress bar (e.g., `38:54`) seeks to an earlier playback time (`38:44`).
 
-## Phase 2 — resolve the `getOffsetSec` API question
+## Phase 4 — Configuration Decoupling
+- [ ] Centralize hardcoded ports, hosts, mirror URLs, and filesystem paths across services into shared configuration.
 
-Goal: establish all consumers of the shared accessor, then decide whether the
-zero-valued stub is inert or causes a real integration mismatch. Do not change
-the player UI's working offset controls before the consumer set is known.
-
-## Phase 3 — audio track preservation
-
-Goal: preserve available audio streams through the local media playback path,
-including language/codec/title metadata where present. Verify using a
-multi-audio test file that the operator is authorized to use.
-
-## Phase 4 — audio track selection in the player
-
-Goal: expose available tracks in the player, label language and codec, support
-selection where the playback format permits it, and test browser compatibility.
-
-## Phase 5 — subtitle verification and synchronization
-
-Goal: verify external subtitle matching, timing transformations, persistence,
-manual offset controls, and automatic synchronization using authorized test
-media.
-
-## Phase 6 — configuration decoupling
-
-Goal: establish one clear configuration source for shared settings; make
-`SITE_DIR` and CSP host configuration portable and explicit.
-
-## Phase 7 — series-library foundations
-
-Goal: define series, season, and episode metadata and library organization.
-Playback wiring is a separate milestone and depends on available storage and
-test media.
-
-## Phase 8 — test catalogue and measurement
-
-Goal: define an eligible test catalogue and measure local metadata association,
-playback, audio-track selection, subtitle behavior, and recovery against
-explicit pass/fail criteria.
-
-## Deferred
-
-Quality upgrades without losing an existing working file, corrupted-file
-detection, duplicate prevention, repository hygiene (runtime logs/manifests),
-and cleanup of unverified dead-code candidates.
+## Post-Phase 4 Backlog
+- [ ] **Secondary public torrent indexers (`1337x` / `EXT`):** Query broader public torrent indexers strictly as a fallback when YTS returns no eligible match (covering older classics, regional titles, and newer non-YTS releases), gated by the same `1080p` ceiling, `min_seeds`, size sanity, `ffprobe` runtime/resolution/language checks, and auto-deletion rules.
+- [ ] **Series playback wiring:** Extend metadata resolution, episode mapping, and indexing to TV series.
+- [ ] **Provider parity & test catalogue:** Reconcile playback behavior across sources and establish a repeatable end-to-end test catalogue.
+- [ ] **Non-YTS media sources:** Add YouTube fallback (for short films and AI-generated titles) and embed providers (for Cam and early Web-DL releases unavailable on YTS).
+- [ ] **Production readiness (future/optional):** Dedicated cloud/CDN hosting, database-backed catalog (replacing flat JSON indexes), user authentication, and licensed content sourcing if deployed publicly.

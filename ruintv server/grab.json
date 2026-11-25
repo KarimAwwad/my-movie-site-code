@@ -3,8 +3,19 @@
   "bind": "0.0.0.0",
   "port": 8789,
   "tmdb_key": "c8b3444f786125dd2b69a88d34202de4",
+  "yts_hosts": [
+    "movies-api.accel.li",
+    "yts.pw",
+    "yts.gg",
+    "yts.mx",
+    "yts.lt",
+    "yts.bz",
+    "yts.rs",
+    "yts.am"
+  ],
   "library_root": "D:\\movies\\library",
   "staging_root": "D:\\movies\\staging",
+  "jobs_file": "D:\\movies\\staging\\jobs.json",
   "client": "fdm",
   "fdm_path": "C:\\Program Files\\Softdeluxe\\Free Download Manager\\fdm.exe",
   "watch_roots": [],
@@ -21,5 +32,10 @@
   "min_seeds": 3,
   "min_free_gb": 20,
   "auto_scan": true,
-  "min_file_mb": 20
+  "min_file_mb": 20,
+  "auto_delete_rejected": true,
+  "verify_runtime_tolerance_min": 10,
+  "verify_runtime_long_tolerance_min": 20,
+  "verify_size_tolerance_pct": 5,
+  "verify_audio_language": true
 }

@@ -1,0 +1,49 @@
+{
+  "total": 500,
+  "matched": 494,
+  "missed": 6,
+  "hit_rate_pct": 98.8,
+  "passed_95_pct_gate": true,
+  "missed_details": [
+    {
+      "tmdb": 1218925,
+      "title": "Chainsaw Man - The Movie: Reze Arc",
+      "year": "2025",
+      "imdb": "tt30472557",
+      "reason": "no candidate at or below 1080p"
+    },
+    {
+      "tmdb": 1248832,
+      "title": "Digger",
+      "year": "2026",
+      "imdb": "tt31450459",
+      "reason": "no yts torrent for this imdb id or title"
+    },
+    {
+      "tmdb": 205596,
+      "title": "The Imitation Game",
+      "year": "2014",
+      "imdb": "tt2084970",
+      "reason": "no candidate meets min_seeds (3)"
+    },
+    {
+      "tmdb": 854,
+      "title": "The Mask",
+      "year": "1994",
+      "imdb": "tt0110475",
+      "reason": "no yts torrent for this imdb id or title"
+    },
+    {
+      "tmdb": 257344,
+      "title": "Pixels",
+      "year": "2015",
+      "reason": "http error: timed out"
+    },
+    {
+      "tmdb": 1387382,
+      "title": "Hunting Season",
+      "year": "2025",
+      "reason": "http error: timed out"
+    }
+  ]
+}

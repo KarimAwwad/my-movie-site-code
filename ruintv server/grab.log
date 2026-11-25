@@ -12,3 +12,53 @@
 16:08:36 staging D:\movies\staging
 16:08:36 watch depth 3
 16:08:36 watching D:\movies\staging
+18:10:39 grab 1.4.1 on http://0.0.0.0:8789 mode=fdm
+18:10:39 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+18:10:39 runtime tolerance ±10 min, size tolerance ±5%, auto_delete_rejected=True
+18:10:39 library D:\movies\library
+18:10:39 staging D:\movies\staging
+18:10:39 watch depth 3
+18:10:39 watching D:\movies\staging
+18:13:10 handed to FDM: Insidious: Chapter 3 (2015) [1080p] -> Insidious Chapter 3 (2015) [1080p] [YTS]
+18:18:58 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+18:19:30 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+18:23:54 grab 1.4.2 on http://0.0.0.0:8789 mode=fdm
+18:23:54 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+18:23:54 runtime tolerance ±10 min, size tolerance ±5%, auto_delete_rejected=True
+18:23:54 library D:\movies\library
+18:23:54 staging D:\movies\staging
+18:23:54 watch depth 3
+18:23:54 watching D:\movies\staging
+18:24:02 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+18:24:14 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+18:29:52 grab 1.4.3 on http://0.0.0.0:8789 mode=fdm
+18:29:52 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+18:29:52 runtime tolerance ±10 min, size tolerance ±5%, auto_delete_rejected=True
+18:29:52 library D:\movies\library
+18:29:52 staging D:\movies\staging
+18:29:52 watch depth 3
+18:29:52 watching D:\movies\staging
+18:30:03 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+18:30:26 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+18:30:29 handed to FDM: Knock at the Cabin (2023) [1080p] -> Knock at the Cabin (2023) [1080p] [YTS]
+18:41:47 filed Knock at the Cabin (2023) [tmdb-631842].mp4 (1.8 GB)
+18:41:48 removed staging folder Knock At The Cabin (2023) [1080p] [WEBRip] [5.1] [YTS.MX]
+19:50:19 grab 1.5.0 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+19:50:19 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+19:50:19 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+19:50:19 library D:\movies\library
+19:50:19 staging D:\movies\staging
+19:50:19 watch depth 3
+19:50:19 watching D:\movies\staging
+20:00:53 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:00:57 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:01:09 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:07:59 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:14:50 yts movies-api.accel.li: <urlopen error [WinError 10054] An existing connection was forcibly closed by the remote host>
+20:14:51 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:15:37 yts movies-api.accel.li: Remote end closed connection without response
+20:17:15 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:17:40 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:21:38 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:21:42 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+20:21:46 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>

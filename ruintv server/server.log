@@ -39,3 +39,42 @@
 [2026-11-25 08:24:38] 200 /manifest.json
 [2026-11-25 08:24:38] 200 /script.js
 [2026-11-25 16:08:31] serving D:\my development work\unfinished and finished development projects\movie site on http://localhost:80
+[2026-11-25 17:17:48] 200 /
+[2026-11-25 17:17:48] 200 /style.css
+[2026-11-25 17:17:48] 200 /manifest.json
+[2026-11-25 17:17:48] 200 /components.js
+[2026-11-25 17:17:48] 200 /script.js
+[2026-11-25 17:17:54] 200 /search?q=the%20migration
+[2026-11-25 17:17:54] 200 /components.js
+[2026-11-25 17:17:54] 200 /style.css
+[2026-11-25 17:17:54] 200 /script.js
+[2026-11-25 17:17:54] 200 /manifest.json
+[2026-11-25 17:18:05] 200 /search?q=migration
+[2026-11-25 17:18:05] 200 /components.js
+[2026-11-25 17:18:05] 200 /style.css[2026-11-25 17:18:05] 200 /manifest.json
+[2026-11-25 17:18:05] 200 /script.js
+
+[2026-11-25 17:18:07] 200 /watch?id=940551
+[2026-11-25 17:18:07] 200 /style.css
+[2026-11-25 17:18:07] 200 /components.js
+[2026-11-25 17:18:07] 200 /script.js
+[2026-11-25 17:18:07] 200 /manifest.json
+[2026-11-25 17:18:07] 200 /player-ui.css
+[2026-11-25 17:18:07] 200 /player-ui.js
+[2026-11-25 17:18:08] 200 /icons/favicon-64.png
+[2026-11-25 18:10:31] serving D:\my development work\unfinished and finished development projects\movie site on http://localhost:80
+[2026-11-25 18:23:45] serving D:\my development work\unfinished and finished development projects\movie site on http://localhost:80
+[2026-11-25 18:29:38] serving D:\my development work\unfinished and finished development projects\movie site on http://localhost:80
+[2026-11-25 18:47:45] 200 /watch?id=631842
+[2026-11-25 18:47:46] 200 /style.css
+[2026-11-25 18:47:46] 200 /player-ui.css
+[2026-11-25 18:47:46] 200 /manifest.json
+[2026-11-25 18:47:46] 200 /components.js
+[2026-11-25 18:47:46] 200 /script.js
+[2026-11-25 18:47:46] 200 /player-ui.js
+[2026-11-25 18:49:36] 200 /home
+[2026-11-25 18:49:36] 200 /style.css
+[2026-11-25 18:49:36] 200 /components.js
+[2026-11-25 18:49:36] 200 /script.js
+[2026-11-25 18:49:36] 200 /manifest.json
+[2026-11-25 19:50:11] serving D:\my development work\unfinished and finished development projects\movie site on http://localhost:80
