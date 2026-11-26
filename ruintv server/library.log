@@ -42,3 +42,10 @@
 19:50:19 library 1.2.5 on http://0.0.0.0:8788
 19:50:19 root D:\movies\library
 19:50:19 cache D:\movies\cache
+02:55:52 warning: no TMDB_KEY (env, .env or config.json) — only tagged files will match
+02:55:52 trick index: local only (no SUPABASE_URL/SUPABASE_KEY)
+02:55:52 drive pool: D:\my development work\unfinished and finished development projects\ruin-stream\gdrive_accounts.json
+02:56:52 scan: 7 file(s) matched, 0 unmatched
+02:56:52 library 1.2.5 on http://0.0.0.0:8788
+02:56:52 root D:\movies\library
+02:56:52 cache D:\movies\cache

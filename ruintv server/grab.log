@@ -62,3 +62,10 @@
 20:21:38 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
 20:21:42 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
 20:21:46 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+02:55:55 grab 1.5.0 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+02:55:55 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+02:55:55 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+02:55:55 library D:\movies\library
+02:55:55 staging D:\movies\staging
+02:55:55 watch depth 3
+02:55:55 watching D:\movies\staging

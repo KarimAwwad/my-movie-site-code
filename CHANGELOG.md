@@ -1,7 +1,9 @@
 # Changelog
 
 ## [Unreleased]
-- Phase 2: Preserve all embedded audio streams (original language plus secondary dubbed tracks) across indexing and streaming.
+- Phase 2A: Upgrade `library.py` `probe()`, `/index.json`, and FFmpeg HLS remuxing to preserve all embedded audio tracks and regional labels via `#EXT-X-MEDIA:TYPE=AUDIO` rendition groups.
+- Phase 2B: Add YouTube (`yt-dlp`) original + all auto-dubbed multi-language audio extraction and muxing.
+- Phase 2C: Add unified `YTS` + `1337x` + `EXT` multi-language/regional dub discovery, track-count ranking, and supplemental missing-dub extraction/muxing.
 
 ## [1.5.0] — 2026-11-25
 ### Added
