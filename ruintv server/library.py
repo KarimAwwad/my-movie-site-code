@@ -2,14 +2,15 @@
 """
 library.py — RUIN.TO local library daemon (port 8788)
 
-Scans a folder, matches each video to a TMDB id, and serves it. Nothing here touches
-the live site; the site asks this daemon and falls back to providers when it has nothing.
+Scans a folder, matches each video to a TMDB id, catalogs all embedded audio tracks,
+and serves it. Nothing here touches the live site; the site asks this daemon and falls
+back to providers when it has nothing.
 
 Two serving paths:
-  * a browser-safe file (mp4/webm, h264/vp8/vp9/av1, aac/mp3/opus/vorbis) is byte-streamed
-    with HTTP Range, straight from disk
-  * anything else (mkv, HEVC, AC3, DTS) is remuxed ONCE by ffmpeg into fMP4 HLS in a cache
-    folder, then served as a playlist
+- a single-track browser-safe file (mp4/webm, h264/vp8/vp9/av1, aac/mp3/opus/vorbis, <=1 audio
+    stream) is byte-streamed with HTTP Range, straight from disk
+- anything else (2+ audio tracks, mkv, HEVC, AC3, DTS) is packaged ONCE by ffmpeg into fMP4 HLS
+    in a cache folder with separate #EXT-X-MEDIA:TYPE=AUDIO renditions for every audio stream
 
 Matching, in order: a [tmdb-123] tag, an IMDb id (tt1234567), or a TMDB title+year search.
 Whatever does not match is reported at /probe and can be fixed in library_overrides.json
@@ -24,7 +25,7 @@ Supabase keys or the Drive accounts are absent, sprites stay purely local and no
 
 Endpoints:
     GET  /health
-    GET  /index.json?tmdb=<id>      files for one film (what the site reads)
+    GET  /index.json?tmdb=<id>      files + audio_tracks for one film (what the site reads)
     GET  /index.json                the whole index
     GET  /file/<tmdb>/<i>           direct bytes, Range supported
     GET  /stream/<tmdb>/<i>         master playlist (builds on first request)
@@ -55,7 +56,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.2.5"
+VERSION = "1.3.0"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ruin-library/" + VERSION
 
 VIDEO_EXT = {".mp4", ".m4v", ".mkv", ".webm", ".avi", ".mov", ".ts", ".m2ts", ".mpg", ".mpeg"}
@@ -63,6 +64,7 @@ SUB_EXT = {".srt", ".vtt", ".ass", ".ssa"}
 DIRECT_EXT = {".mp4", ".m4v", ".webm"}
 DIRECT_VCODEC = {"h264", "vp8", "vp9", "av1"}
 DIRECT_ACODEC = {"aac", "mp3", "opus", "vorbis"}
+COPY_H264_PIX_FMTS = {"", "yuv420p", "yuvj420p"}
 
 TMDB_TAG = re.compile(r"[\[(]tmdb[-_ ]?(\d+)[\])]", re.I)
 IMDB_TAG = re.compile(r"\b(tt\d{7,9})\b")
@@ -75,9 +77,112 @@ JUNK = re.compile(
     re.I,
 )
 
+# ISO-639-1 / ISO-639-2(B/T) -> (BCP-47 base tag, canonical English name)
+LANG_MAP: dict[str, tuple[str, str]] = {
+    "en": ("en", "English"),
+    "eng": ("en", "English"),
+    "fr": ("fr", "French"),
+    "fra": ("fr", "French"),
+    "fre": ("fr", "French"),
+    "es": ("es", "Spanish"),
+    "spa": ("es", "Spanish"),
+    "ar": ("ar", "Arabic"),
+    "ara": ("ar", "Arabic"),
+    "de": ("de", "German"),
+    "deu": ("de", "German"),
+    "ger": ("de", "German"),
+    "it": ("it", "Italian"),
+    "ita": ("it", "Italian"),
+    "ja": ("ja", "Japanese"),
+    "jpn": ("ja", "Japanese"),
+    "ko": ("ko", "Korean"),
+    "kor": ("ko", "Korean"),
+    "pt": ("pt", "Portuguese"),
+    "por": ("pt", "Portuguese"),
+    "ru": ("ru", "Russian"),
+    "rus": ("ru", "Russian"),
+    "hi": ("hi", "Hindi"),
+    "hin": ("hi", "Hindi"),
+    "zh": ("zh", "Chinese"),
+    "zho": ("zh", "Chinese"),
+    "chi": ("zh", "Chinese"),
+    "tr": ("tr", "Turkish"),
+    "tur": ("tr", "Turkish"),
+    "pl": ("pl", "Polish"),
+    "pol": ("pl", "Polish"),
+    "nl": ("nl", "Dutch"),
+    "nld": ("nl", "Dutch"),
+    "dut": ("nl", "Dutch"),
+    "sv": ("sv", "Swedish"),
+    "swe": ("sv", "Swedish"),
+    "no": ("no", "Norwegian"),
+    "nor": ("no", "Norwegian"),
+    "da": ("da", "Danish"),
+    "dan": ("da", "Danish"),
+    "fi": ("fi", "Finnish"),
+    "fin": ("fi", "Finnish"),
+    "el": ("el", "Greek"),
+    "ell": ("el", "Greek"),
+    "gre": ("el", "Greek"),
+    "he": ("he", "Hebrew"),
+    "heb": ("he", "Hebrew"),
+    "th": ("th", "Thai"),
+    "tha": ("th", "Thai"),
+    "vi": ("vi", "Vietnamese"),
+    "vie": ("vi", "Vietnamese"),
+    "id": ("id", "Indonesian"),
+    "ind": ("id", "Indonesian"),
+    "ms": ("ms", "Malay"),
+    "msa": ("ms", "Malay"),
+    "may": ("ms", "Malay"),
+    "uk": ("uk", "Ukrainian"),
+    "ukr": ("uk", "Ukrainian"),
+    "cs": ("cs", "Czech"),
+    "ces": ("cs", "Czech"),
+    "cze": ("cs", "Czech"),
+    "hu": ("hu", "Hungarian"),
+    "hun": ("hu", "Hungarian"),
+    "ro": ("ro", "Romanian"),
+    "ron": ("ro", "Romanian"),
+    "rum": ("ro", "Romanian"),
+    "ta": ("ta", "Tamil"),
+    "tam": ("ta", "Tamil"),
+    "te": ("te", "Telugu"),
+    "tel": ("te", "Telugu"),
+    "bn": ("bn", "Bengali"),
+    "ben": ("bn", "Bengali"),
+    "ur": ("ur", "Urdu"),
+    "urd": ("ur", "Urdu"),
+    "fa": ("fa", "Persian"),
+    "fas": ("fa", "Persian"),
+    "per": ("fa", "Persian"),
+    "und": ("und", "Unknown"),
+}
+
+# Regional subtag / title rules: (base_bcp47, tag_or_title_regex, resolved_bcp47, canonical_regional_label)
+REGIONAL_RULES: list[tuple[str, re.Pattern[str], str, str]] = [
+    ("fr", re.compile(r"\b(fr[-_ ]?ca|fra[-_ ]?ca|canada|canadian|qu[eé]bec|vfq)\b", re.I), "fr-CA", "French (Canada)"),
+    ("fr", re.compile(r"\b(fr[-_ ]?fr|fra[-_ ]?fr|france|vff|truefrench|european)\b", re.I), "fr-FR", "French (France)"),
+    ("es", re.compile(r"\b(es[-_ ]?(419|mx|la|ar|co|cl)|spa[-_ ]?419|latin(\s+america)?|latino|latam|mexico)\b", re.I), "es-419", "Spanish (Latin America)"),
+    ("es", re.compile(r"\b(es[-_ ]?es|spa[-_ ]?es|spain|castilian|castellano|espa[nñ]a)\b", re.I), "es-ES", "Spanish (Spain)"),
+    ("pt", re.compile(r"\b(pt[-_ ]?br|por[-_ ]?br|brazil|brasil|brazilian)\b", re.I), "pt-BR", "Portuguese (Brazil)"),
+    ("pt", re.compile(r"\b(pt[-_ ]?pt|por[-_ ]?pt|portugal|european)\b", re.I), "pt-PT", "Portuguese (Portugal)"),
+    ("en", re.compile(r"\b(en[-_ ]?gb|eng[-_ ]?gb|uk|british)\b", re.I), "en-GB", "English (UK)"),
+    ("en", re.compile(r"\b(en[-_ ]?us|eng[-_ ]?us|american)\b", re.I), "en-US", "English (US)"),
+    ("zh", re.compile(r"\b(zh[-_ ]?(hans|cn|sg)|simplified|mandarin)\b", re.I), "zh-Hans", "Chinese (Simplified)"),
+    ("zh", re.compile(r"\b(zh[-_ ]?(hant|tw|hk)|traditional|cantonese)\b", re.I), "zh-Hant", "Chinese (Traditional)"),
+]
+
+GENERIC_STREAM_TITLES = re.compile(
+    r"^(sound\s*handler|gpac\s+iso\s+audio\s+handler|iso\s+media.*|stereo|mono|surround(\s*5\.1|\s*7\.1)?|"
+    r"audio(\s*\d+)?|track\s*\d+|default|main|aac|ac3|eac3|dts)$",
+    re.I,
+)
+
 MIN_FREE_BYTES = 8 * 1024 ** 3
 HLS_TIME = 6
 BUILD_WAIT = 600          # a feature-length remux takes minutes; the request is held, not failed
+CACHE_SCHEMA = "v2"
 
 # seek-bar sprites: one frame every TRICK_INTERVAL seconds, tiled TRICK_COLS x TRICK_ROWS per sheet
 TRICK_INTERVAL = 10
@@ -180,12 +285,12 @@ def find_ffmpeg() -> tuple[str, str]:
     if not ff:
         return "", ""
     base = os.path.dirname(ff)
-    probe = os.path.join(base, "ffprobe.exe" if os.name == "nt" else "ffprobe")
-    return ff, probe if os.path.isfile(probe) else ""
+    probe_bin = os.path.join(base, "ffprobe.exe" if os.name == "nt" else "ffprobe")
+    return ff, probe_bin if os.path.isfile(probe_bin) else ""
 
 
 # --------------------------------------------------------------------------- #
-# matching
+# matching & audio stream cataloging
 # --------------------------------------------------------------------------- #
 
 def clean_title(name: str) -> str:
@@ -249,11 +354,112 @@ def match_file(path: Path) -> int | None:
     return int(first["id"])
 
 
-def probe(path: Path) -> tuple[bool, int, int]:
-    """(browser can play it directly, height, seconds)"""
+def _clean_stream_title(raw_title: str) -> str:
+    cleaned = re.sub(r"[\r\n\t]+", " ", raw_title or "").strip()
+    cleaned = cleaned.replace('"', "'").strip()
+    if not cleaned or GENERIC_STREAM_TITLES.match(cleaned):
+        return ""
+    return cleaned
+
+
+def normalize_audio_streams(raw_streams: list[dict]) -> list[dict]:
+    """
+    Catalog every audio stream from ffprobe with normalized BCP-47 language tags,
+    preserved regional variants (e.g., French (France) vs. French (Canada)),
+    and collision-free display labels for HLS #EXT-X-MEDIA NAME attributes.
+    """
+    catalog: list[dict] = []
+    has_explicit_default = any(
+        bool((s.get("disposition") or {}).get("default")) for s in raw_streams
+    )
+
+    for ai, s in enumerate(raw_streams):
+        tags = {str(k).lower(): str(v) for k, v in (s.get("tags") or {}).items() if v is not None}
+        raw_lang = (tags.get("language") or "und").strip().lower().replace("_", "-")
+        base_token = raw_lang.split("-", 1)[0]
+        bcp_base, lang_name = LANG_MAP.get(
+            base_token,
+            (base_token if len(base_token) in (2, 3) else "und", base_token.upper() if base_token else "Unknown"),
+        )
+
+        raw_title = tags.get("title") or tags.get("name") or tags.get("handler_name") or ""
+        title_clean = _clean_stream_title(raw_title)
+
+        bcp_lang = bcp_base
+        regional_label = ""
+        matched_pattern: re.Pattern[str] | None = None
+        probe_blob = f"{raw_lang} {title_clean}".strip()
+        for rule_base, pattern, resolved_tag, resolved_label in REGIONAL_RULES:
+            if bcp_base == rule_base and pattern.search(probe_blob):
+                bcp_lang = resolved_tag
+                regional_label = resolved_label
+                matched_pattern = pattern
+                break
+
+        if regional_label:
+            # Strip the matched regional/language words so titles like "French (Canada)"
+            # or "Brazilian Portuguese" don't duplicate, while preserving real qualifiers
+            # such as "French (Canada) - Commentary".
+            extra = matched_pattern.sub(" ", title_clean) if matched_pattern else title_clean
+            extra = re.sub(rf"\b{re.escape(lang_name)}\b", " ", extra, flags=re.I)
+            extra = re.sub(r"\s{2,}", " ", extra).strip(" -–—:()[]")
+            if extra:
+                label = f"{regional_label} ({extra})"
+            else:
+                label = regional_label
+        elif title_clean:
+            if bcp_base != "und" and lang_name.lower() not in title_clean.lower():
+                label = f"{lang_name} ({title_clean})"
+            else:
+                label = title_clean
+        else:
+            label = f"Track {ai + 1}" if bcp_base == "und" else lang_name
+
+        codec = (s.get("codec_name") or "unknown").lower()
+        try:
+            channels = int(s.get("channels") or 0)
+        except (TypeError, ValueError):
+            channels = 0
+        is_default = (
+            bool((s.get("disposition") or {}).get("default"))
+            if has_explicit_default
+            else (ai == 0)
+        )
+
+        catalog.append({
+            "index": ai,
+            "lang": bcp_lang,
+            "raw_lang": raw_lang or "und",
+            "label": label,
+            "codec": codec,
+            "channels": channels,
+            "default": is_default,
+        })
+
+    # RFC 8216 requires every #EXT-X-MEDIA NAME within the same GROUP-ID to be unique.
+    # If two tracks still share the exact same label (e.g., two untagged French tracks),
+    # disambiguate them deterministically so identical language codes never collide.
+    counts: dict[str, int] = {}
+    for item in catalog:
+        key = item["label"].lower()
+        counts[key] = counts.get(key, 0) + 1
+
+    seen: dict[str, int] = {}
+    for item in catalog:
+        key = item["label"].lower()
+        if counts[key] > 1:
+            occ = seen.get(key, 0) + 1
+            seen[key] = occ
+            item["label"] = f"{item['label']} (Track {occ})"
+
+    return catalog
+
+
+def probe_details(path: Path) -> tuple[bool, int, int, list[dict], bool]:
+    """(browser can play directly, height, seconds, audio_tracks, can_copy_h264)"""
     ext = path.suffix.lower()
     if not FFPROBE:
-        return ext in DIRECT_EXT, 0, 0
+        return ext in DIRECT_EXT, 0, 0, [], False
     try:
         out = subprocess.run(
             [FFPROBE, "-v", "error", "-print_format", "json",
@@ -262,19 +468,35 @@ def probe(path: Path) -> tuple[bool, int, int]:
         )
         info = json.loads(out.stdout.decode("utf-8", "replace") or "{}")
     except Exception:
-        return ext in DIRECT_EXT, 0, 0
+        return ext in DIRECT_EXT, 0, 0, [], False
     v = next((s for s in info.get("streams") or [] if s.get("codec_type") == "video"), None)
     a = [s for s in info.get("streams") or [] if s.get("codec_type") == "audio"]
     if not v:
-        return False, 0, 0
+        return False, 0, 0, [], False
     height = int(v.get("height") or 0)
     vc = (v.get("codec_name") or "").lower()
-    acs = [(s.get("codec_name") or "").lower() for s in a]
-    direct = ext in DIRECT_EXT and vc in DIRECT_VCODEC and all(c in DIRECT_ACODEC for c in acs)
+    pix_fmt = (v.get("pix_fmt") or "").lower()
+    can_copy_h264 = vc == "h264" and pix_fmt in COPY_H264_PIX_FMTS
+    audio_tracks = normalize_audio_streams(a)
+    acs = [t["codec"] for t in audio_tracks]
+    # Multi-audio files (2+ tracks) always route through HLS so #EXT-X-MEDIA:TYPE=AUDIO
+    # renditions expose every language/regional track cleanly to hls.js.
+    direct = (
+        len(audio_tracks) <= 1
+        and ext in DIRECT_EXT
+        and vc in DIRECT_VCODEC
+        and all(c in DIRECT_ACODEC for c in acs)
+    )
     try:
         seconds = int(float((info.get("format") or {}).get("duration") or 0))
     except (TypeError, ValueError):
         seconds = 0
+    return direct, height, seconds, audio_tracks, can_copy_h264
+
+
+def probe(path: Path) -> tuple[bool, int, int]:
+    """Backwards-compatible wrapper returning (direct, height, seconds)."""
+    direct, height, seconds, _, _ = probe_details(path)
     return direct, height, seconds
 
 
@@ -284,17 +506,33 @@ def sidecar_subs(path: Path) -> list[dict]:
         entries = list(path.parent.iterdir())
     except OSError:
         return out
-    for cand in entries:
+    prefix = path.stem + "."
+    for cand in sorted(entries, key=lambda p: p.name.lower()):
         if not cand.is_file() or cand.suffix.lower() not in SUB_EXT:
             continue
-        if cand.stem != path.stem:
+        if cand.stem != path.stem and not cand.stem.startswith(prefix):
             continue
         lang = "und"
-        m = re.search(r"\.([a-z]{2,3})$", cand.stem)
-        if m and cand.stem.lower().endswith(m.group(0)) and len(cand.stem) > len(path.stem):
-            lang = m.group(1)
+        if cand.stem.startswith(prefix):
+            suffix_tag = cand.stem[len(prefix):].strip()
+            if re.match(r"^[a-z]{2,3}(?:[-_][a-z0-9]{2,4})?$", suffix_tag, re.I):
+                lang = suffix_tag.replace("_", "-")
         out.append({"path": cand, "lang": lang, "label": lang.upper()})
     return out
+
+
+def _index_summary(lib: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    return {
+        k: [
+            {
+                "file": str(e["path"].relative_to(ROOT)),
+                "direct": e["direct"],
+                "audio_tracks": e.get("audio_tracks") or [],
+            }
+            for e in v
+        ]
+        for k, v in lib.items()
+    }
 
 
 def scan() -> None:
@@ -313,7 +551,7 @@ def scan() -> None:
         if not tmdb:
             unmatched.append({"file": str(path.relative_to(ROOT)), "title": clean_title(path.name)})
             continue
-        direct, height, seconds = probe(path)
+        direct, height, seconds, audio_tracks, can_copy_h264 = probe_details(path)
         try:
             stat = path.stat()
         except OSError:
@@ -323,6 +561,8 @@ def scan() -> None:
             "direct": direct,
             "height": height,
             "seconds": seconds,
+            "audio_tracks": audio_tracks,
+            "can_copy_h264": can_copy_h264,
             "subs": sidecar_subs(path),
             "mtime": stat.st_mtime,
             "size": stat.st_size,
@@ -334,9 +574,7 @@ def scan() -> None:
     total = sum(len(v) for v in lib.values())
     log(f"scan: {total} file(s) matched, {len(unmatched)} unmatched")
     try:
-        INDEX_PATH.write_text(json.dumps(
-            {k: [{"file": str(e["path"].relative_to(ROOT)), "direct": e["direct"]} for e in v]
-             for k, v in lib.items()}, indent=1), encoding="utf-8")
+        INDEX_PATH.write_text(json.dumps(_index_summary(lib), indent=1), encoding="utf-8")
     except OSError:
         pass
 
@@ -374,11 +612,11 @@ def forget(path: Path) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# HLS cache
+# HLS cache (single-audio & multi-audio #EXT-X-MEDIA:TYPE=AUDIO packaging)
 # --------------------------------------------------------------------------- #
 
 def cache_key(path: Path, mtime: float, size: int) -> str:
-    return hashlib.sha1(f"{path}|{mtime}|{size}".encode()).hexdigest()[:16]
+    return hashlib.sha1(f"{CACHE_SCHEMA}|{path}|{mtime}|{size}".encode()).hexdigest()[:16]
 
 
 def cache_dir(key: str) -> Path:
@@ -387,39 +625,97 @@ def cache_dir(key: str) -> Path:
     return d
 
 
+def _is_multi_audio(audio_tracks: list[dict] | None) -> bool:
+    return bool(audio_tracks and len(audio_tracks) >= 2)
+
+
+COMPLETE_BUILDS: set[tuple[str, str, int]] = set()
+COMPLETE_BUILDS_LOCK = threading.Lock()
+
+
+def _drop_complete_mark(key: str) -> None:
+    with COMPLETE_BUILDS_LOCK:
+        for item in [k for k in COMPLETE_BUILDS if k[1] == key]:
+            COMPLETE_BUILDS.discard(item)
+
+
 # What FFMPEG has to produce before a directory is usable. The master is NOT in here: it is written by us
 # afterwards, so a check that included it could never pass.
-def outputs_present(key: str) -> bool:
+def outputs_present(key: str, audio_tracks: list[dict] | None = None) -> bool:
     out = CACHE / key
+    if _is_multi_audio(audio_tracks):
+        if not ((out / "stream_v.m3u8").exists()
+                and (out / "init_v.mp4").exists()
+                and ((out / "seg_v_00000.m4s").exists() or any(out.glob("seg_v_*.m4s")))):
+            return False
+        for i in range(len(audio_tracks or [])):
+            if not ((out / f"stream_a{i}.m3u8").exists()
+                    and (out / f"init_a{i}.mp4").exists()
+                    and ((out / f"seg_a{i}_00000.m4s").exists() or any(out.glob(f"seg_a{i}_*.m4s")))):
+                return False
+        return True
     return ((out / "index.m3u8").exists()
             and (out / "init.mp4").exists()
-            and any(out.glob("seg*.m4s")))
+            and ((out / "seg00000.m4s").exists() or any(out.glob("seg*.m4s"))))
 
 
 # What the handler needs: ffmpeg's output plus the master on top of it.
-def build_complete(key: str) -> bool:
-    return outputs_present(key) and (CACHE / key / "master.m3u8").exists()
+def build_complete(key: str, audio_tracks: list[dict] | None = None) -> bool:
+    mark = (str(CACHE), key, len(audio_tracks or []))
+    with COMPLETE_BUILDS_LOCK:
+        if mark in COMPLETE_BUILDS:
+            return True
+    ok = outputs_present(key, audio_tracks) and (CACHE / key / "master.m3u8").exists()
+    if ok:
+        with COMPLETE_BUILDS_LOCK:
+            COMPLETE_BUILDS.add(mark)
+    return ok
 
 
-def missing_parts(key: str) -> str:
+def missing_parts(key: str, audio_tracks: list[dict] | None = None) -> str:
     out = CACHE / key
     gaps = []
-    if not (out / "index.m3u8").exists():
-        gaps.append("index.m3u8")
-    if not (out / "init.mp4").exists():
-        gaps.append("init.mp4")
-    if not any(out.glob("seg*.m4s")):
-        gaps.append("segments")
+    if _is_multi_audio(audio_tracks):
+        if not (out / "stream_v.m3u8").exists():
+            gaps.append("stream_v.m3u8")
+        if not (out / "init_v.mp4").exists():
+            gaps.append("init_v.mp4")
+        if not any(out.glob("seg_v_*.m4s")):
+            gaps.append("video segments")
+        for i in range(len(audio_tracks or [])):
+            if not (out / f"stream_a{i}.m3u8").exists():
+                gaps.append(f"stream_a{i}.m3u8")
+            if not (out / f"init_a{i}.mp4").exists():
+                gaps.append(f"init_a{i}.mp4")
+            if not any(out.glob(f"seg_a{i}_*.m4s")):
+                gaps.append(f"a{i} segments")
+    else:
+        if not (out / "index.m3u8").exists():
+            gaps.append("index.m3u8")
+        if not (out / "init.mp4").exists():
+            gaps.append("init.mp4")
+        if not any(out.glob("seg*.m4s")):
+            gaps.append("segments")
     if not (out / "master.m3u8").exists():
         gaps.append("master")
     return ", ".join(gaps) or "nothing"
 
 
 def clear_build(key: str) -> None:
+    _drop_complete_mark(key)
     out = CACHE / key
     if not out.is_dir():
         return
-    for pattern in ("master.m3u8", "index.m3u8", "init.mp4", "seg*.m4s"):
+    patterns = (
+        "master.m3u8",
+        "index.m3u8",
+        "init.mp4",
+        "seg*.m4s",
+        "stream_*.m3u8",
+        "init_*.mp4",
+        "seg_*_*.m4s",
+    )
+    for pattern in patterns:
         for f in out.glob(pattern):
             try:
                 f.unlink()
@@ -427,15 +723,96 @@ def clear_build(key: str) -> None:
                 pass
 
 
-def write_master(key: str, height: int = 0) -> None:
+def _m3u8_attr(val: str) -> str:
+    return re.sub(r"[\r\n]+", " ", str(val or "")).replace('"', "'").strip()
+
+
+def write_master(key: str, height: int = 0, audio_tracks: list[dict] | None = None) -> None:
     # The variant carries the real height, so the quality menu reads 720p for a 720p file instead of a
     # hardcoded 1080p. RESOLUTION is also the attribute hls.js names a level from.
     h = max(144, min(height or 1080, 2160))
     w = int(round(h * 16 / 9 / 2)) * 2
+
+    if _is_multi_audio(audio_tracks):
+        tracks = audio_tracks or []
+        default_idx = next((i for i, t in enumerate(tracks) if t.get("default")), 0)
+        lines = ["#EXTM3U", "#EXT-X-VERSION:7"]
+        for i, t in enumerate(tracks):
+            name_attr = _m3u8_attr(t.get("label") or f"Track {i + 1}")
+            lang_attr = _m3u8_attr(t.get("lang") or "und")
+            is_def = "YES" if i == default_idx else "NO"
+            lines.append(
+                f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="{name_attr}",'
+                f'LANGUAGE="{lang_attr}",DEFAULT={is_def},AUTOSELECT=YES,URI="stream_a{i}.m3u8"'
+            )
+        lines.append(
+            f'#EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION={w}x{h},'
+            f'CODECS="avc1.640028,mp4a.40.2",AUDIO="aud"'
+        )
+        lines.append("stream_v.m3u8")
+        (CACHE / key / "master.m3u8").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return
+
     (CACHE / key / "master.m3u8").write_text(
         "#EXTM3U\n#EXT-X-VERSION:7\n"
         f'#EXT-X-STREAM-INF:BANDWIDTH=6000000,RESOLUTION={w}x{h},CODECS="avc1.640028,mp4a.40.2"\n'
         "index.m3u8\n", encoding="utf-8")
+
+
+def build_ffmpeg_cmd(
+    src: Path,
+    audio_tracks: list[dict] | None = None,
+    can_copy_h264: bool = False,
+) -> list[str]:
+    cmd = [FFMPEG, "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", str(src)]
+
+    if _is_multi_audio(audio_tracks):
+        n_audio = len(audio_tracks or [])
+        cmd.extend(["-map", "0:v:0"])
+        for i in range(n_audio):
+            cmd.extend(["-map", f"0:a:{i}"])
+
+        if can_copy_h264:
+            cmd.extend(["-c:v", "copy"])
+        else:
+            cmd.extend([
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+                "-force_key_frames", f"expr:gte(t,n_forced*{HLS_TIME})",
+            ])
+
+        cmd.extend(["-c:a", "aac", "-b:a", "160k", "-ac", "2"])
+        var_map = " ".join(
+            ["v:0,agroup:aud,name:v"] + [f"a:{i},agroup:aud,name:a{i}" for i in range(n_audio)]
+        )
+        cmd.extend([
+            "-f", "hls",
+            "-hls_time", str(HLS_TIME),
+            "-hls_playlist_type", "event",
+            "-hls_segment_type", "fmp4",
+            "-hls_fmp4_init_filename", "init_%v.mp4",
+            "-hls_segment_filename", "seg_%v_%05d.m4s",
+            "-var_stream_map", var_map,
+            "stream_%v.m3u8",
+        ])
+        return cmd
+
+    cmd.extend(["-map", "0:v:0", "-map", "0:a:0?"])
+    if can_copy_h264:
+        cmd.extend(["-c:v", "copy"])
+    else:
+        cmd.extend([
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-force_key_frames", f"expr:gte(t,n_forced*{HLS_TIME})",
+        ])
+    cmd.extend([
+        "-c:a", "aac", "-b:a", "160k", "-ac", "2",
+        "-f", "hls", "-hls_time", str(HLS_TIME), "-hls_playlist_type", "event",
+        "-hls_segment_type", "fmp4",
+        "-hls_fmp4_init_filename", "init.mp4",
+        "-hls_segment_filename", "seg%05d.m4s",
+        "index.m3u8",
+    ])
+    return cmd
 
 
 def prune_cache() -> None:
@@ -453,16 +830,23 @@ def prune_cache() -> None:
             break
         size = sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
         shutil.rmtree(d, ignore_errors=True)
+        _drop_complete_mark(d.name)
         free += size
         log(f"pruned {d.name} ({size // 1024 ** 2} MB)")
 
 
-def build(key: str, src: Path, height: int = 0) -> None:
-    if build_complete(key):
+def build(
+    key: str,
+    src: Path,
+    height: int = 0,
+    audio_tracks: list[dict] | None = None,
+    can_copy_h264: bool = False,
+) -> None:
+    if build_complete(key, audio_tracks):
         return
     # ffmpeg already finished its part but the master is missing: just write the master, no need to encode again.
-    if outputs_present(key):
-        write_master(key, height)
+    if outputs_present(key, audio_tracks):
+        write_master(key, height, audio_tracks)
         log(f"master written for {src.name} (outputs were already there)")
         return
     if not FFMPEG:
@@ -474,20 +858,9 @@ def build(key: str, src: Path, height: int = 0) -> None:
     # Every output name below is RELATIVE and ffmpeg is run with cwd=out. A bare
     # -hls_fmp4_init_filename is resolved against the working directory, not against the playlist path,
     # so an absolute playlist alone left init.mp4 next to library.py and the cache never held it.
-    cmd = [
-        FFMPEG, "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-        "-i", str(src),
-        "-map", "0:v:0", "-map", "0:a:0?",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "160k", "-ac", "2",
-        "-force_key_frames", f"expr:gte(t,n_forced*{HLS_TIME})",
-        "-f", "hls", "-hls_time", str(HLS_TIME), "-hls_playlist_type", "event",
-        "-hls_segment_type", "fmp4",
-        "-hls_fmp4_init_filename", "init.mp4",
-        "-hls_segment_filename", "seg%05d.m4s",
-        "index.m3u8",
-    ]
-    log(f"remux start {src.name}")
+    cmd = build_ffmpeg_cmd(src, audio_tracks=audio_tracks, can_copy_h264=can_copy_h264)
+    n_audio = len(audio_tracks or [])
+    log(f"remux start {src.name} (audio tracks: {n_audio}, video: {'copy' if can_copy_h264 else 'h264'})")
     try:
         subprocess.run(cmd, check=True, timeout=6 * 3600, cwd=str(out),
                        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -497,16 +870,23 @@ def build(key: str, src: Path, height: int = 0) -> None:
     except subprocess.TimeoutExpired:
         log(f"remux timed out {src.name}")
         return
-    if not outputs_present(key):
-        log(f"remux left an incomplete set for {src.name} (missing {missing_parts(key)}), not writing the master")
+    if not outputs_present(key, audio_tracks):
+        log(f"remux left an incomplete set for {src.name} (missing {missing_parts(key, audio_tracks)}), not writing the master")
         return
-    write_master(key, height)
+    write_master(key, height, audio_tracks)
     log(f"remux done {src.name}")
 
 
-def _build_thread(key: str, src: Path, height: int, ev: threading.Event) -> None:
+def _build_thread(
+    key: str,
+    src: Path,
+    height: int,
+    audio_tracks: list[dict] | None,
+    can_copy_h264: bool,
+    ev: threading.Event,
+) -> None:
     try:
-        build(key, src, height)
+        build(key, src, height, audio_tracks=audio_tracks, can_copy_h264=can_copy_h264)
     except Exception as exc:
         log(f"remux crashed {src.name}: {exc}")
     finally:
@@ -517,13 +897,23 @@ def _build_thread(key: str, src: Path, height: int, ev: threading.Event) -> None
         ev.set()
 
 
-def ensure_built(key: str, src: Path, height: int = 0) -> threading.Event:
+def ensure_built(
+    key: str,
+    src: Path,
+    height: int = 0,
+    audio_tracks: list[dict] | None = None,
+    can_copy_h264: bool = False,
+) -> threading.Event:
     with BUILDS_LOCK:
         ev = BUILDS.get(key)
         if ev is None:
             ev = threading.Event()
             BUILDS[key] = ev
-            threading.Thread(target=_build_thread, args=(key, src, height, ev), daemon=True).start()
+            threading.Thread(
+                target=_build_thread,
+                args=(key, src, height, audio_tracks, can_copy_h264, ev),
+                daemon=True,
+            ).start()
         return ev
 
 
@@ -888,6 +1278,25 @@ __BODY__
 <p><code>{"Some Movie 2024.mkv": 12345}</code></p>"""
 
 
+def rewrite_master_uris(text: str, file_idx: str) -> str:
+    """
+    When master.m3u8 is served at /stream/<tmdb>/<i> (no trailing slash), relative URIs
+    resolve against /stream/<tmdb>/. Prefixing <i>/ onto both #EXT-X-MEDIA URI="..."
+    attributes and variant playlist lines keeps <i> in every child playlist & segment URL.
+    """
+    text = re.sub(
+        r'URI="([^"/][^"]*)"',
+        lambda m: f'URI="{file_idx}/{m.group(1)}"',
+        text,
+    )
+    text = re.sub(
+        r"(?m)^([a-zA-Z0-9_.-]+\.m3u8)[ \t]*$",
+        lambda m: f"{file_idx}/{m.group(1)}",
+        text,
+    )
+    return text
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     # a kept-alive connection may sit idle between segments; 300 s covers a paused player without
@@ -905,7 +1314,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Cache-Control", "no-store")
+        if not extra or not any(k.lower() == "cache-control" for k in extra):
+            self.send_header("Cache-Control", "no-store")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -980,8 +1390,13 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/health":
             with LIB_LOCK:
                 total = sum(len(v) for v in LIB.values())
-            return self._send(200, json.dumps({"ok": True, "version": VERSION, "files": total,
-                                               "ffmpeg": bool(FFMPEG)}))
+            return self._send(200, json.dumps({
+                "ok": True,
+                "version": VERSION,
+                "files": total,
+                "ffmpeg": bool(FFMPEG),
+                "multi_audio": True,
+            }))
 
         # GET as well as POST: grab.py pokes this after filing, and a GET poke used to 404 here.
         if u.path == "/scan":
@@ -996,8 +1411,16 @@ class Handler(BaseHTTPRequestHandler):
                     body.append(f'<h2>tmdb {tmdb}</h2><table>')
                     for i, e in enumerate(items):
                         mode = "direct" if e["direct"] else "remux"
-                        body.append(f'<tr><td class="g">{e["path"].name}</td>'
-                                    f'<td class="m">{mode} · {e["height"] or "?"}p · {len(e["subs"])} sub(s)</td></tr>')
+                        atracks = e.get("audio_tracks") or []
+                        if atracks:
+                            alabels = ", ".join(t["label"] for t in atracks)
+                            ainfo = f"{len(atracks)} audio ({alabels})"
+                        else:
+                            ainfo = "0 audio"
+                        body.append(
+                            f'<tr><td class="g">{e["path"].name}</td>'
+                            f'<td class="m">{mode} · {e["height"] or "?"}p · {ainfo} · {len(e["subs"])} sub(s)</td></tr>'
+                        )
                     body.append("</table>")
                 if UNMATCHED:
                     body.append('<h2 class="b">unmatched</h2><table>')
@@ -1021,6 +1444,7 @@ class Handler(BaseHTTPRequestHandler):
                         "kind": "mp4" if e["direct"] else "hls",
                         "height": e["height"],
                         "seconds": e["seconds"],
+                        "audio_tracks": list(e.get("audio_tracks") or []),
                         "subtitles": [
                             {"label": s["label"], "lang": s["lang"],
                              "url": f"{base}/subs/{tmdb}/{i}/{si}.vtt"}
@@ -1029,9 +1453,7 @@ class Handler(BaseHTTPRequestHandler):
                     } for i, e in enumerate(items)]
                 return self._send(200, json.dumps({"tmdb": tmdb, "files": files}))
             with LIB_LOCK:
-                return self._send(200, json.dumps(
-                    {k: [{"file": str(e["path"].relative_to(ROOT)), "direct": e["direct"]} for e in v]
-                     for k, v in LIB.items()}, indent=1))
+                return self._send(200, json.dumps(_index_summary(LIB), indent=1))
 
         if len(parts) >= 3 and parts[0] == "file":
             items, entry = self._lookup(parts[1], parts[2])
@@ -1046,25 +1468,43 @@ class Handler(BaseHTTPRequestHandler):
             if not entry["path"].exists():
                 forget(entry["path"])
                 return self._send(404, json.dumps({"error": "file gone"}))
+            audio_tracks = entry.get("audio_tracks") or []
             key = cache_key(entry["path"], entry["mtime"], entry["size"])
-            if not build_complete(key):
+            if not build_complete(key, audio_tracks):
                 # rebuilds a missing init.mp4 / half-written set instead of serving a playlist hls.js cannot use
-                ev = ensure_built(key, entry["path"], entry["height"])
+                ev = ensure_built(
+                    key,
+                    entry["path"],
+                    entry["height"],
+                    audio_tracks=audio_tracks,
+                    can_copy_h264=bool(entry.get("can_copy_h264")),
+                )
                 ev.wait(BUILD_WAIT)
             out = CACHE / key
-            if not build_complete(key):
-                return self._send(503, json.dumps({"error": "still remuxing", "missing": missing_parts(key)}),
-                                  extra={"Retry-After": "5"})
+            if not build_complete(key, audio_tracks):
+                return self._send(
+                    503,
+                    json.dumps({"error": "still remuxing", "missing": missing_parts(key, audio_tracks)}),
+                    extra={"Retry-After": "5"},
+                )
             name = parts[3] if len(parts) > 3 else "master.m3u8"
             if name == "master.m3u8":
-                # The child line in the file is a bare "index.m3u8". Rewrite it to carry the file index, so the
-                # variant is fetched at /stream/<tmdb>/<i>/index.m3u8 and the index survives into every segment URL.
-                text = (out / "master.m3u8").read_text(encoding="utf-8")
-                text = re.sub(r"(?m)^index\.m3u8\s*$", f"{parts[2]}/index.m3u8", text)
+                try:
+                    text = (out / "master.m3u8").read_text(encoding="utf-8")
+                except FileNotFoundError:
+                    _drop_complete_mark(key)
+                    return self._send(
+                        503,
+                        json.dumps({"error": "cache invalidated, retry"}),
+                        extra={"Retry-After": "1"},
+                    )
+                if len(parts) == 3 and not u.path.endswith("/"):
+                    text = rewrite_master_uris(text, parts[2])
                 return self._send(200, text, "application/vnd.apple.mpegurl",
                                   extra={"Cache-Control": "no-store"})
             target = out / name
             if not target.exists():
+                _drop_complete_mark(key)
                 return self._send(404, json.dumps({"error": "not ready"}))
             ctype = ("application/vnd.apple.mpegurl" if name.endswith(".m3u8")
                      else "video/mp4" if name.endswith(".mp4") else "video/iso.segment")
@@ -1185,6 +1625,7 @@ class Handler(BaseHTTPRequestHandler):
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
+    request_queue_size = 64
 
     def handle_error(self, request, client_address):
         exc = sys.exc_info()[1]

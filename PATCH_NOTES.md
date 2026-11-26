@@ -1,20 +1,23 @@
-# PATCH_NOTES — Phase 1
-Issue #1 only. No audio, subtitle or unrelated change.
+# PATCH_NOTES — Phase 2B (`grab.py` v1.6.0)
+YouTube (`yt-dlp`) original + all auto-dubbed multi-language audio acquisition and muxing.
 
 ## Files replaced / added
 
 | File | Change |
 |---|---|
-| `ruintv server/grab.py` | 1.3.5 → 1.4.1, verification gates + audit fixes |
-| `ruintv server/grab.json` | three verification keys added, `fdm` retained |
-| `ruintv server/phase1_tests.py` | offline unit test harness calling `grab.evaluate()` |
-| `KNOWN_ISSUES.md` | #1 closed, #14 added, #12 updated |
-| `CHANGELOG.md` | Phase 1 entry |
-| `TEST_RESULTS.md` | Phase 1 entry |
-| `PATCH_NOTES.md` | this file |
+| `ruintv server/grab.py` | 1.5.0 → 1.6.0, YouTube (`yt-dlp`) search/URL fallback, original + all regional/auto-dub stream enumeration, FFmpeg multi-audio MP4 muxing |
+| `ruintv server/phase2b_tests.py` | Offline unit & HTTP test suite (`U01`–`U05`) |
+| `ruintv server/dry_sweep_yt.py` | Read-only `/dry` verification sweep script |
+| `CHANGELOG.md` | Added `[1.7.0]` Phase 2B entry |
+| `DEVELOPMENT_ROADMAP.md` | Marked Phase 2A completed and Phase 2B implemented |
+| `KNOWN_ISSUES.md` | Updated Phase 2A to Resolved and Phase 2B to Mitigated |
+| `TEST_RESULTS.md` | Added Phase 2A pass results and Phase 2B verification checklist |
+| `PATCH_NOTES.md` | This file |
 
-## Packaging (PowerShell)
+## Testing Steps
 
-```powershell
-cd "path\to\my-movie-site-code"
-Compress-Archive -Path "ruintv server\grab.py","ruintv server\grab.json","ruintv server\phase1_tests.py",KNOWN_ISSUES.md,CHANGELOG.md,TEST_RESULTS.md,PATCH_NOTES.md -DestinationPath phase1.zip -Force
+1. **Offline Regression & Phase 2B Unit Suite:**
+   ```powershell
+   cd "D:\my development work\unfinished and finished development projects\ruintv server"
+   python phase1_tests.py
+   python phase2b_tests.py

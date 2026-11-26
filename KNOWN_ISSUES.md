@@ -2,17 +2,16 @@
 
 ## Active / Open Issues
 
-### [MEDIUM] Media Pipeline — Multi-Source Dub Acquisition & Multi-Audio Preservation
-- **Status:** Open (Current — Phase 2)
+### [MEDIUM] Media Pipeline — Multi-Indexer Discovery & Supplemental Dub Muxing (Phase 2C)
+- **Status:** Open (Phase 2A completed in `library.py` v1.3.0; Phase 2B implemented in `grab.py` v1.6.0; Phase 2C remaining)
 - **Details:**
-  1. `library.py` currently maps only `0:v:0` and `0:a:0?` during HLS remuxing, discarding secondary audio tracks, and marks multi-audio `.mp4` files as `direct: true` (where browsers disable `.audioTracks` switching instead of serving `#EXT-X-MEDIA:TYPE=AUDIO` via HLS).
-  2. `grab.py` currently queries only YTS and does not yet pull full multi-language/regional dub sets from `1337x`/`EXT` or YouTube `yt-dlp` auto-dubs.
-  3. External embed providers (`vixsrc`, `vidsrc`) do not expose switchable audio tracks (single baked-in audio only), making local multi-source acquisition and muxing essential for audio variety.
+  1. `grab.py` now supports YTS + YouTube (`yt-dlp`) multi-audio acquisition, and still needs unified `1337x` + `EXT` discovery, track-count ranking, and supplemental missing-dub extraction/muxing (Phase 2C).
+  2. External embed providers (`vixsrc`, `vidsrc`) do not expose switchable audio tracks (single baked-in audio only), making local multi-source acquisition and muxing essential for audio variety.
 
 ### [MEDIUM] Player UI — Audio Switcher & Seekbar Hover Preview vs. Playback Time Offset
 - **Status:** Open (Queued for Phase 3)
 - **Observed:**
-  1. Web player needs an audio selection panel matching the existing subtitle menu so users can switch between original and all embedded/regional dubbed audio streams.
+  1. Web player needs an audio selection panel matching the existing subtitle menu so users can switch between original and all embedded/regional dubbed audio streams exposed by `library.py` v1.3.0 (`#EXT-X-MEDIA:TYPE=AUDIO`).
   2. Clicking/hovering at `38:54` on the timeline progress bar seeks playback to `38:44` (a ~10-second discrepancy between the preview tooltip/thumb position and bottom-left playback clock).
 - **Suspected Cause (Seekbar):** Offset/padding mismatch in timeline click coordinate calculation or `<video>` keyframe seek snapping.
 
@@ -24,14 +23,19 @@
 
 ## Mitigated / Resolved Issues
 
+### [MEDIUM -> MITIGATED] `grab.py` (`v1.6.0`) — YouTube (`yt-dlp`) Original + All Auto-Dubs Acquisition & Muxing (Phase 2B)
+- **Mitigation (`v1.6.0`):**
+  1. Added YouTube search and direct `?yt=<url>` fallback in `resolve()` with trailer/clip/reaction filtering and runtime / `yt_min_unknown_secs` gating.
+  2. Enumerated original audio plus all unique auto-dubbed and regional tracks from `yt-dlp -J`, muxing `<=1080p` video + all audio tracks via `ffmpeg` with ISO 639-2 codes and regional titles, then auto-filing and cleaning staging folders.
+- **Verification:** Offline unit & HTTP suite (`phase2b_tests.py`) authored; awaiting local unit execution, read-only `/dry` sweep (`dry_sweep_yt.py`), and live multi-dub YouTube grab + HLS playback verification.
+
+### [MEDIUM -> RESOLVED] `library.py` (`v1.3.0`) — Multi-Audio Stream Cataloging & HLS `#EXT-X-MEDIA:TYPE=AUDIO` Rendition Packaging (Phase 2A)
+- **Resolution (`v1.3.0`):** Cataloged all embedded audio streams with regional variant labels (`French (France)` vs. `French (Canada)`, `Spanish (Latin America)` vs. `Spanish (Spain)`) and routed `2+` audio files through `#EXT-X-MEDIA:TYPE=AUDIO` HLS renditions while keeping direct byte-streaming for single-track files.
+- **Verification:** `6/6` tests passing in `phase2a_tests.py` and live daemon verified on `:8788` (`7` matched, `0` unmatched).
+
 ### [HIGH -> RESOLVED] `grab.py` (`v1.5.0`) — Quality Ceiling, Uncut Priority, Audio Gate & Edge-Case Hardening
-- **Resolution (`v1.5.0`):**
-  1. Enforced hard `1080p` quality ceiling (removed `2160p` fallback) and hard `min_seeds` (`3`) floor.
-  2. Added `Unrated`/`Extended`/`Uncut`/`Director's Cut` priority with asymmetric runtime tolerance (`-10 min` / `+20 min`).
-  3. Added original audio language verification while preserving multi-audio tracks for Phases 2–3.
-  4. Added duplicate/already-in-library `/grab` guard, `D:\movies\staging\jobs.json` restart persistence, bonus-clip `.temp` size guard (`<50%`), transient Windows/FDM `WinError 32` move retries, and concurrent queued disk-space accounting.
-- **Verification:** `24/24` unit tests passing and `494/500` (`98.80%`) match coverage on the 500-movie `/dry` sweep.
+- **Resolution (`v1.5.0`):** Enforced hard `1080p` ceiling, `min_seeds: 3` floor, `Unrated`/`Extended`/`Uncut`/`Director's Cut` priority (`-10`/`+20 min`), original audio language verification, duplicate-library `409` guard, `jobs.json` persistence, and Windows/FDM lock/bonus-clip guards.
+- **Verification:** `24/24` unit tests passing and `494/500` (`98.80%`) match coverage on `dry_sweep_500.py`.
 
 ### [CRITICAL -> MITIGATED] Issue #1 — Wrong Movie Misfiled Into Library (`grab.py`)
-- **Mitigation (`v1.4.1`–`v1.5.0`):** Removed blind size-only fallback; added pre-download IMDb + normalized title/year/runtime locks, MB/min size floors, widescreen `ffprobe` resolution bands (`1920x800` / `1920x804`), post-download duration/language/identity verification, `_review` parking, and automatic deletion of mismatched downloads.
-- **Cleanup:** Audited `D:\movies\library` with `ffprobe` and purged 6 misfiled 2026 titles from an earlier scrapped build.
+- **Mitigation (`v1.4.1`–`v1.5.0`):** Pre-download IMDb + normalized title/year/runtime locks, MB/min size floors, post-download `ffprobe` runtime/resolution/language/identity gates, `_review` isolation, and auto-deletion of rejected downloads.

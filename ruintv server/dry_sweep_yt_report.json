@@ -1,0 +1,62 @@
+[
+  {
+    "tmdb": 631842,
+    "note": "Knock at the Cabin (2023) — YTS primary",
+    "title": "Knock at the Cabin",
+    "source": "yts",
+    "matched": true,
+    "quality": "1080p",
+    "audio_count": 0,
+    "audio_tracks": [],
+    "rejected": "",
+    "elapsed_s": 5.6
+  },
+  {
+    "tmdb": 49018,
+    "note": "Insidious (2010) — YTS primary",
+    "title": "Insidious",
+    "source": "yts",
+    "matched": true,
+    "quality": "1080p",
+    "audio_count": 0,
+    "audio_tracks": [],
+    "rejected": "",
+    "elapsed_s": 1.07
+  },
+  {
+    "tmdb": 1261152,
+    "note": "Remain Calm — YouTube multi-dub fallback",
+    "title": "Cremer",
+    "source": "none",
+    "matched": false,
+    "quality": "",
+    "audio_count": 0,
+    "audio_tracks": [],
+    "rejected": "no yts torrent for this imdb id or title; youtube fallback: no YouTube search result passed title and duration filters",
+    "elapsed_s": 7.25
+  },
+  {
+    "tmdb": 1218925,
+    "note": "Chainsaw Man Reze Arc (2025) — 2160p ceiling gate",
+    "title": "Chainsaw Man - The Movie: Reze Arc",
+    "source": "none",
+    "matched": false,
+    "quality": "",
+    "audio_count": 0,
+    "audio_tracks": [],
+    "rejected": "no candidate at or below 1080p; youtube fallback: no YouTube search result passed title and duration filters",
+    "elapsed_s": 4.28
+  },
+  {
+    "tmdb": 1248832,
+    "note": "Digger (2026) — Unreleased / noise rejection gate",
+    "title": "Digger",
+    "source": "none",
+    "matched": false,
+    "quality": "",
+    "audio_count": 0,
+    "audio_tracks": [],
+    "rejected": "no yts torrent for this imdb id or title; youtube fallback: no YouTube search result passed title and duration filters",
+    "elapsed_s": 29.14
+  }
+]

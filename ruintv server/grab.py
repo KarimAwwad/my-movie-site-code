@@ -2,53 +2,35 @@
 """
 grab.py — RUIN.TO acquisition daemon (port 8789)
 
-Resolves a TMDB id to a YTS torrent, verifies it before spending bandwidth, then
-verifies the downloaded file again before it is allowed into the library.
+Resolves a TMDB id to a verified local library file:
 
     <Title> (Year) [tmdb-<id>].mp4
 
-Client modes, set "client" in grab.json:
+Acquisition sources:
+1. YTS torrents (primary) — verified pre-download (IMDb lock, <=max_quality ceiling,
+   min_seeds floor, uncut priority, MB/min floor) and post-download (ffprobe runtime,
+   widescreen resolution, original audio language, identity).
+2. YouTube via yt-dlp (fallback when YTS misses or ?yt=<url> is supplied) — uses
+   player_client=all to expose auto-dubs, filters out trailers/clips/reviews, enforces
+   runtime or yt_min_unknown_secs floor, prefers m3u8 streams (with automatic https
+   fallback) at <=max_quality + original audio + EVERY unique auto-dubbed / regional /
+   audio-description track, skips failed secondary dubs non-fatally, muxes all streams
+   into one MP4 with ISO 639-2 codes & regional titles, files into the library, and
+   deletes temporary staging files immediately.
 
+Client modes for torrents, set "client" in grab.json:
   aria2   Fully automatic. aria2 is handed a per-job folder and writes into it.
   fdm     Hands the magnet to Free Download Manager, which creates its own
           per-download subfolder under the staging root.
   drop    Nothing is launched. The API returns the magnet; the watcher files
           whatever lands.
 
-Verification has two stages.
-
-PRE-DOWNLOAD. TMDB is queried with append_to_response=external_ids,
-alternative_titles and the result is kept on the job as ground truth. Every YTS
-candidate must match the IMDb id (or normalized title + exact year + YTS runtime
-if TMDB's IMDb id is not indexed on YTS), stay at or below max_quality (hard
-1080p ceiling, never falling back to 2160p), meet min_seeds, avoid dub-only
-releases, and clear a per-minute size floor. Unrated / Extended / Uncut /
-Director's Cut releases are prioritized when multiple torrents exist.
-
-POST-DOWNLOAD. Four gates, all on the real file:
-
-1. ffprobe duration within [-10 min, +20 min] of TMDB runtime (allows longer
-     extended/uncut editions while rejecting shortened or wrong movies)
-2. ffprobe width/height consistent with the grabbed quality (including cropped
-     widescreen encodes such as 1920x800), and size within ±5% of the torrent
-3. audio language — original TMDB language must be preserved (multi-audio
-     files containing the original track pass; dub-only replacements reject)
-4. identity — FDM subfolder name, filename, or container title matches TMDB
-     title, original_title, or any alternative title (year, if present, within ±1)
-
-All gates pass -> filed. Runtime, resolution, or dub-only audio fails -> wrong
-release: job failed permanently and the download deleted. Runtime, resolution,
-and language pass but identity fails -> likely the right film under an unexpected
-release name: moved into staging/_review as needs_review, never renamed, never
-closed, and surfaced in /queue for a human decision.
-
 Endpoints:
-
     GET  /                     queue page
     GET  /health
     GET  /queue                jobs as JSON
-    GET  /dry?tmdb=<id>        resolve + gate a film without downloading
-    POST /grab?tmdb=<id>       start a job
+    GET  /dry?tmdb=<id>        resolve + gate a film without downloading (&yt=<url> optional)
+    POST /grab?tmdb=<id>       start a job (&yt=<url> optional)
     POST /cancel?id=<job>      cancel a job
     POST /queue/approve?id=    file a needs_review candidate
     POST /queue/reject?id=     delete a needs_review candidate
@@ -75,10 +57,11 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.5.0"
+VERSION = "1.6.2"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 VIDEO_EXT = {".mp4", ".m4v", ".mkv", ".webm", ".avi", ".mov", ".ts", ".m2ts"}
 QUALITY_RANK = {"2160p": 4, "1080p": 3, "720p": 2, "480p": 1}
+QUALITY_MAX_HEIGHT = {"2160p": 2160, "1080p": 1080, "720p": 720, "480p": 480}
 YTS_HOSTS = ("movies-api.accel.li", "yts.pw", "yts.gg", "yts.mx", "yts.lt", "yts.bz", "yts.rs", "yts.am")
 TRACKERS = (
     "udp://tracker.opentrackr.org:1337/announce",
@@ -91,8 +74,8 @@ TRACKERS = (
 )
 SKIP_TOKENS = ("sample", "trailer", "proof")
 IGNORED_DIRS = {".temp", "_review"}
-ACTIVE_STATES = {"resolving", "downloading", "handed_off", "moving", "needs_review"}
-DISK_RESERVED_STATES = {"resolving", "downloading", "handed_off", "moving"}
+ACTIVE_STATES = {"resolving", "downloading", "handed_off", "muxing", "moving", "needs_review"}
+DISK_RESERVED_STATES = {"resolving", "downloading", "handed_off", "muxing", "moving"}
 
 # words too common to prove anything on their own
 STOP_TOKENS = {
@@ -100,10 +83,41 @@ STOP_TOKENS = {
     "yts", "yify", "x264", "x265", "aac", "web", "webrip", "bluray", "brrip",
     "bdrip", "hdtv", "remux", "proper", "repack", "extended", "unrated",
     "uncut", "directors", "director", "cut", "1080p", "720p", "2160p", "480p",
+    "full", "movie", "film", "official", "hd", "4k", "free", "watch", "online",
 }
 # sequelling words that differ freely between TMDB and release names
 CONNECTORS = {"chapter", "part", "vol", "volume", "pt", "episode", "pt.", "one", "two", "three"}
-UNCUT_MARKERS = ("unrated", "extended", "uncut", "director's cut", "directors cut", "final cut", "ultimate cut", "redux")
+UNCUT_MARKERS = ("unrated", "extended", "uncut", "director's cut", "directors cut", "final cut", "ultimate cut",
+                 "redux")
+
+# YouTube title noise markers rejected unless present in the movie's own TMDB title
+YT_REJECT_PHRASES = (
+    "trailer",
+    "teaser",
+    "official clip",
+    "movie clip",
+    "film clip",
+    "deleted scene",
+    "ending explained",
+    "explained",
+    "recap",
+    "reaction",
+    "review",
+    "soundtrack",
+    "ost",
+    "behind the scenes",
+    "making of",
+    "interview",
+    "bloopers",
+    "tv spot",
+    "sneak peek",
+    "fan made",
+    "fan film",
+    "parody",
+    "gameplay",
+    "walkthrough",
+)
+YT_REJECT_WORDS = {"trailer", "teaser", "clip", "clips", "recap", "reaction", "review", "ost", "bloopers", "parody"}
 
 # ISO 639-1 (TMDB original_language) -> ISO 639-1 + ISO 639-2/B/T (ffprobe stream tags)
 ISO1_TO_ISO2 = {
@@ -140,7 +154,148 @@ ISO1_TO_ISO2 = {
     "hu": {"hu", "hun"},
     "ro": {"ro", "rum", "ron"},
     "uk": {"uk", "ukr"},
+    "bn": {"bn", "ben"},
+    "ur": {"ur", "urd"},
+    "ms": {"ms", "msa", "may"},
+    "pa": {"pa", "pan"},
+    "mr": {"mr", "mar"},
 }
+
+# ISO-639-1 / ISO-639-2 -> (BCP-47 base tag, ISO 639-2/T tag, canonical English name)
+LANG_CATALOG: dict[str, tuple[str, str, str]] = {
+    "en": ("en", "eng", "English"),
+    "eng": ("en", "eng", "English"),
+    "fr": ("fr", "fra", "French"),
+    "fra": ("fr", "fra", "French"),
+    "fre": ("fr", "fra", "French"),
+    "es": ("es", "spa", "Spanish"),
+    "spa": ("es", "spa", "Spanish"),
+    "ar": ("ar", "ara", "Arabic"),
+    "ara": ("ar", "ara", "Arabic"),
+    "de": ("de", "deu", "German"),
+    "deu": ("de", "deu", "German"),
+    "ger": ("de", "deu", "German"),
+    "it": ("it", "ita", "Italian"),
+    "ita": ("it", "ita", "Italian"),
+    "ja": ("ja", "jpn", "Japanese"),
+    "jpn": ("ja", "jpn", "Japanese"),
+    "ko": ("ko", "kor", "Korean"),
+    "kor": ("ko", "kor", "Korean"),
+    "pt": ("pt", "por", "Portuguese"),
+    "por": ("pt", "por", "Portuguese"),
+    "ru": ("ru", "rus", "Russian"),
+    "rus": ("ru", "rus", "Russian"),
+    "hi": ("hi", "hin", "Hindi"),
+    "hin": ("hi", "hin", "Hindi"),
+    "zh": ("zh", "zho", "Chinese"),
+    "zho": ("zh", "zho", "Chinese"),
+    "chi": ("zh", "zho", "Chinese"),
+    "tr": ("tr", "tur", "Turkish"),
+    "tur": ("tr", "tur", "Turkish"),
+    "pl": ("pl", "pol", "Polish"),
+    "pol": ("pl", "pol", "Polish"),
+    "nl": ("nl", "nld", "Dutch"),
+    "nld": ("nl", "nld", "Dutch"),
+    "dut": ("nl", "nld", "Dutch"),
+    "sv": ("sv", "swe", "Swedish"),
+    "swe": ("sv", "swe", "Swedish"),
+    "no": ("no", "nor", "Norwegian"),
+    "nor": ("no", "nor", "Norwegian"),
+    "da": ("da", "dan", "Danish"),
+    "dan": ("da", "dan", "Danish"),
+    "fi": ("fi", "fin", "Finnish"),
+    "fin": ("fi", "fin", "Finnish"),
+    "el": ("el", "ell", "Greek"),
+    "ell": ("el", "ell", "Greek"),
+    "gre": ("el", "ell", "Greek"),
+    "he": ("he", "heb", "Hebrew"),
+    "heb": ("he", "heb", "Hebrew"),
+    "th": ("th", "tha", "Thai"),
+    "tha": ("th", "tha", "Thai"),
+    "vi": ("vi", "vie", "Vietnamese"),
+    "vie": ("vi", "vie", "Vietnamese"),
+    "id": ("id", "ind", "Indonesian"),
+    "ind": ("id", "ind", "Indonesian"),
+    "ms": ("ms", "msa", "Malay"),
+    "msa": ("ms", "msa", "Malay"),
+    "may": ("ms", "msa", "Malay"),
+    "uk": ("uk", "ukr", "Ukrainian"),
+    "ukr": ("uk", "ukr", "Ukrainian"),
+    "cs": ("cs", "ces", "Czech"),
+    "ces": ("cs", "ces", "Czech"),
+    "cze": ("cs", "ces", "Czech"),
+    "hu": ("hu", "hun", "Hungarian"),
+    "hun": ("hu", "hun", "Hungarian"),
+    "ro": ("ro", "ron", "Romanian"),
+    "ron": ("ro", "ron", "Romanian"),
+    "rum": ("ro", "ron", "Romanian"),
+    "ta": ("ta", "tam", "Tamil"),
+    "tam": ("ta", "tam", "Tamil"),
+    "te": ("te", "tel", "Telugu"),
+    "tel": ("te", "tel", "Telugu"),
+    "ml": ("ml", "mal", "Malayalam"),
+    "mal": ("ml", "mal", "Malayalam"),
+    "mr": ("mr", "mar", "Marathi"),
+    "mar": ("mr", "mar", "Marathi"),
+    "pa": ("pa", "pan", "Punjabi"),
+    "pan": ("pa", "pan", "Punjabi"),
+    "gu": ("gu", "guj", "Gujarati"),
+    "guj": ("gu", "guj", "Gujarati"),
+    "kn": ("kn", "kan", "Kannada"),
+    "kan": ("kn", "kan", "Kannada"),
+    "bn": ("bn", "ben", "Bengali"),
+    "ben": ("bn", "ben", "Bengali"),
+    "ur": ("ur", "urd", "Urdu"),
+    "urd": ("ur", "urd", "Urdu"),
+    "fa": ("fa", "fas", "Persian"),
+    "fas": ("fa", "fas", "Persian"),
+    "per": ("fa", "fas", "Persian"),
+    "ne": ("ne", "nep", "Nepali"),
+    "nep": ("ne", "nep", "Nepali"),
+    "si": ("si", "sin", "Sinhala"),
+    "sin": ("si", "sin", "Sinhala"),
+    "my": ("my", "mya", "Burmese"),
+    "mya": ("my", "mya", "Burmese"),
+    "km": ("km", "khm", "Khmer"),
+    "khm": ("km", "khm", "Khmer"),
+    "lo": ("lo", "lao", "Lao"),
+    "lao": ("lo", "lao", "Lao"),
+    "ka": ("ka", "kat", "Georgian"),
+    "kat": ("ka", "kat", "Georgian"),
+    "hy": ("hy", "hye", "Armenian"),
+    "hye": ("hy", "hye", "Armenian"),
+    "az": ("az", "aze", "Azerbaijani"),
+    "aze": ("az", "aze", "Azerbaijani"),
+    "kk": ("kk", "kaz", "Kazakh"),
+    "kaz": ("kk", "kaz", "Kazakh"),
+    "uz": ("uz", "uzb", "Uzbek"),
+    "uzb": ("uz", "uzb", "Uzbek"),
+    "sw": ("sw", "swa", "Swahili"),
+    "swa": ("sw", "swa", "Swahili"),
+    "am": ("am", "amh", "Amharic"),
+    "amh": ("am", "amh", "Amharic"),
+    "tl": ("tl", "tgl", "Tagalog"),
+    "tgl": ("tl", "tgl", "Tagalog"),
+    "fil": ("fil", "fil", "Filipino"),
+    "und": ("und", "und", "Unknown"),
+}
+
+REGIONAL_RULES: list[tuple[str, re.Pattern[str], str, str]] = [
+    ("fr", re.compile(r"\b(fr[-_ ]?ca|fra[-_ ]?ca|canada|canadian|qu[eé]bec|vfq)\b", re.I), "fr-CA", "French (Canada)"),
+    ("fr", re.compile(r"\b(fr[-_ ]?fr|fra[-_ ]?fr|france|vff|truefrench|european)\b", re.I), "fr-FR",
+     "French (France)"),
+    ("es", re.compile(r"\b(es[-_ ]?(419|mx|la|ar|co|cl)|spa[-_ ]?419|latin(\s+america)?|latino|latam|mexico)\b", re.I),
+     "es-419", "Spanish (Latin America)"),
+    ("es", re.compile(r"\b(es[-_ ]?es|spa[-_ ]?es|spain|castilian|castellano|espa[nñ]a)\b", re.I), "es-ES",
+     "Spanish (Spain)"),
+    ("pt", re.compile(r"\b(pt[-_ ]?br|por[-_ ]?br|brazil|brasil|brazilian)\b", re.I), "pt-BR", "Portuguese (Brazil)"),
+    ("pt", re.compile(r"\b(pt[-_ ]?pt|por[-_ ]?pt|portugal|european)\b", re.I), "pt-PT", "Portuguese (Portugal)"),
+    ("en", re.compile(r"\b(en[-_ ]?gb|eng[-_ ]?gb|uk|british)\b", re.I), "en-GB", "English (UK)"),
+    ("en", re.compile(r"\b(en[-_ ]?us|eng[-_ ]?us|american)\b", re.I), "en-US", "English (US)"),
+    ("zh", re.compile(r"\b(zh[-_ ]?(hans|cn|sg)|simplified|mandarin)\b", re.I), "zh-Hans", "Chinese (Simplified)"),
+    ("zh", re.compile(r"\b(zh[-_ ]?(hant|tw|hk)|traditional|cantonese)\b", re.I), "zh-Hant", "Chinese (Traditional)"),
+]
+
 UNSPECIFIED_LANGS = {"", "und", "unk", "mul", "mis", "zxx"}
 FOREIGN_TAG_WORDS = {
     "spanish", "french", "german", "italian", "russian", "hindi",
@@ -180,6 +335,12 @@ DEFAULTS = {
     "aria2_rpc": "http://127.0.0.1:6800/jsonrpc",
     "aria2_secret": "",
     "library_scan_url": "http://127.0.0.1:8788/scan",
+    "ytdlp_path": r"D:\my development work\development tools\yt-dlp\yt-dlp.exe",
+    "yt_fallback": True,
+    "yt_search": True,
+    "yt_search_limit": 10,
+    "yt_search_min_overlap": 0.5,
+    "yt_min_unknown_secs": 90,
     "max_quality": "1080p",
     "min_seeds": 3,
     "min_free_gb": 20,
@@ -191,6 +352,7 @@ DEFAULTS = {
     "verify_size_tolerance_pct": 5,
     "verify_audio_language": True,
     "ffmpeg_dir": "",
+    "ffmpeg_path": "",
     "ffprobe_path": "",
 }
 
@@ -198,12 +360,14 @@ STOP = threading.Event()
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
 SEEN: dict[str, int] = {}
-REVIEWED: dict[str, int] = {}          # path -> size, parked or rejected: do not re-probe
+REVIEWED: dict[str, int] = {}  # path -> size, parked or rejected: do not re-probe
 REVIEWED_LOCK = threading.Lock()
 PROBE_CACHE: dict[tuple, dict] = {}
 CFG: dict = {}
 ARIA = None
+FFMPEG = ""
 FFPROBE = ""
+YTDLP = ""
 
 
 # --------------------------------------------------------------------------- #
@@ -310,9 +474,12 @@ def load_jobs() -> None:
                     continue
                 if item.get("state") == "moving":
                     item["state"] = "handed_off"
-                elif item.get("state") == "resolving":
+                elif item.get("state") in ("resolving", "muxing"):
                     item["state"] = "failed"
-                    item["error"] = "interrupted during resolve"
+                    item["error"] = f"interrupted during {item.get('state')}"
+                elif item.get("state") == "downloading" and item.get("source") == "youtube":
+                    item["state"] = "failed"
+                    item["error"] = "interrupted during youtube download"
                 JOBS[item["id"]] = item
                 if item.get("state") == "needs_review" and item.get("candidate_path"):
                     with REVIEWED_LOCK:
@@ -374,15 +541,7 @@ def is_transient_lock(exc: BaseException) -> bool:
     return "being used by another process" in msg or "sharing violation" in msg
 
 
-def find_ffprobe() -> str:
-    candidates = [
-        CFG.get("ffprobe_path", ""),
-        os.environ.get("FFPROBE_BIN", ""),
-    ]
-    fdir = CFG.get("ffmpeg_dir", "")
-    if fdir:
-        candidates.append(os.path.join(fdir, "ffprobe.exe" if os.name == "nt" else "ffprobe"))
-    candidates.append("ffprobe")
+def _resolve_binary(candidates: list[str]) -> str:
     for c in candidates:
         if not c:
             continue
@@ -394,6 +553,39 @@ def find_ffprobe() -> str:
             if hit:
                 return hit
     return ""
+
+
+def find_ffprobe() -> str:
+    candidates = [
+        CFG.get("ffprobe_path", ""),
+        os.environ.get("FFPROBE_BIN", ""),
+    ]
+    fdir = CFG.get("ffmpeg_dir", "")
+    if fdir:
+        candidates.append(os.path.join(fdir, "ffprobe.exe" if os.name == "nt" else "ffprobe"))
+    candidates.append("ffprobe")
+    return _resolve_binary(candidates)
+
+
+def find_ffmpeg() -> str:
+    candidates = [
+        CFG.get("ffmpeg_path", ""),
+        os.environ.get("FFMPEG_BIN", ""),
+    ]
+    fdir = CFG.get("ffmpeg_dir", "")
+    if fdir:
+        candidates.append(os.path.join(fdir, "ffmpeg.exe" if os.name == "nt" else "ffmpeg"))
+    candidates.append("ffmpeg")
+    return _resolve_binary(candidates)
+
+
+def find_ytdlp() -> str:
+    candidates = [
+        CFG.get("ytdlp_path", ""),
+        os.environ.get("YTDLP_BIN", ""),
+        "yt-dlp",
+    ]
+    return _resolve_binary(candidates)
 
 
 # --------------------------------------------------------------------------- #
@@ -547,6 +739,35 @@ def uncut_bonus(cand: dict) -> int:
     return 1 if any(m in text for m in UNCUT_MARKERS) else 0
 
 
+def classify_lang_and_region(raw_lang: str, note_or_title: str = "") -> tuple[str, str, str, bool]:
+    """Return (bcp47_lang, iso639_2_tag, display_label, is_audio_desc) preserving regional variants."""
+    cleaned_lang = (raw_lang or "und").strip().lower().replace("_", "-")
+    is_desc = bool(
+        re.search(r"(?:^|-)desc(?:riptive)?$", cleaned_lang)
+        or re.search(r"\b(audio\s+description|descriptive)\b", note_or_title or "", re.I)
+    )
+    cleaned_lang = re.sub(r"(?:^|-)desc(?:riptive)?$", "", cleaned_lang) or "und"
+
+    base_token = cleaned_lang.split("-", 1)[0]
+    bcp_base, iso3, lang_name = LANG_CATALOG.get(
+        base_token,
+        (
+            base_token if len(base_token) in (2, 3) else "und",
+            base_token if len(base_token) == 3 else "und",
+            base_token.upper() if base_token else "Unknown",
+        ),
+    )
+    probe_blob = f"{cleaned_lang} {note_or_title}".strip()
+    resolved_bcp, resolved_label = bcp_base, lang_name
+    for rule_base, pattern, cand_bcp, cand_label in REGIONAL_RULES:
+        if bcp_base == rule_base and pattern.search(probe_blob):
+            resolved_bcp, resolved_label = cand_bcp, cand_label
+            break
+    if is_desc:
+        resolved_label = f"{resolved_label} (Audio Description)"
+    return resolved_bcp, iso3, resolved_label, is_desc
+
+
 # --------------------------------------------------------------------------- #
 # ffprobe
 # --------------------------------------------------------------------------- #
@@ -556,7 +777,8 @@ def ffprobe_media(path: Path) -> dict:
     try:
         st = path.stat()
     except OSError:
-        return {"ok": False, "error": "stat failed", "seconds": 0, "width": 0, "height": 0, "title": "", "audio_langs": []}
+        return {"ok": False, "error": "stat failed", "seconds": 0, "width": 0, "height": 0, "title": "",
+                "audio_langs": []}
     key = (str(path), int(st.st_mtime), int(st.st_size))
     cached = PROBE_CACHE.get(key)
     if cached:
@@ -767,6 +989,7 @@ def yts_candidates(meta: dict) -> list[dict]:
             for tr in TRACKERS:
                 magnet += "&tr=" + urllib.parse.quote(tr)
             out.append({
+                "source": "yts",
                 "quality": t.get("quality") or "?",
                 "size": int(t.get("size_bytes") or 0),
                 "seeds": int(t.get("seeds") or 0),
@@ -818,28 +1041,635 @@ def rank(cands: list[dict]) -> tuple[list[dict], str]:
     return seeded, ""
 
 
-def resolve(tmdb_id: int) -> tuple[dict, list[dict], str]:
+# --------------------------------------------------------------------------- #
+# YouTube (yt-dlp) resolution + multi-language / auto-dub enumeration (Phase 2B)
+# --------------------------------------------------------------------------- #
+
+YTDLP_BASE_ARGS = [
+    "--no-warnings",
+    "--ignore-config",
+    "--extractor-args",
+    "youtube:player_client=all,ios,visionos",
+]
+
+
+def ytdlp_json(args: list[str], timeout: int = 60) -> dict:
+    if not YTDLP:
+        raise RuntimeError("yt-dlp not found")
+    cmd = [YTDLP, *YTDLP_BASE_ARGS, *args]
+    res = subprocess.run(cmd, capture_output=True, timeout=timeout)
+    raw = res.stdout.decode("utf-8", "replace").strip()
+    if not raw:
+        err = res.stderr.decode("utf-8", "replace").strip()[-300:]
+        raise RuntimeError(f"yt-dlp returned empty output{': ' + err if err else ''}")
+    return json.loads(raw)
+
+
+def yt_title_acceptable(yt_title: str, meta: dict) -> tuple[bool, float]:
+    """Check title overlap & reject trailers/clips/reviews unless part of the movie title."""
+    if not yt_title:
+        return False, 0.0
+    low = norm(yt_title)
+    if not low:
+        return False, 0.0
+
+    movie_norms = [norm(t) for t in
+                   [meta.get("title", ""), meta.get("original_title", ""), *(meta.get("alternatives") or [])] if t]
+    movie_words = set()
+    for mn in movie_norms:
+        movie_words.update(mn.split())
+
+    for phrase in YT_REJECT_PHRASES:
+        if phrase in low and not any(phrase in mn for mn in movie_norms):
+            return False, 0.0
+    words = set(low.split())
+    for bad in YT_REJECT_WORDS:
+        if bad in words and bad not in movie_words:
+            return False, 0.0
+
+    want_year = str(meta.get("year") or "").strip()
+    cy = name_year(yt_title)
+    if cy and want_year and abs(int(cy) - int(want_year)) > 1:
+        return False, 0.0
+
+    best_overlap = 0.0
+    have = match_tokens(yt_title)
+    for t in [meta.get("title", ""), meta.get("original_title", ""), *(meta.get("alternatives") or [])]:
+        want = match_tokens(t)
+        if not want:
+            continue
+        overlap = len(want & have) / float(len(want))
+        if overlap > best_overlap:
+            best_overlap = overlap
+
+    min_overlap = float(CFG.get("yt_search_min_overlap") or 0.5)
+    if best_overlap < min_overlap:
+        return False, best_overlap
+    return True, best_overlap
+
+
+def yt_duration_acceptable(duration_sec: int, meta: dict) -> tuple[bool, str]:
+    """Validate duration against TMDB runtime, or yt_min_unknown_secs when runtime is 0."""
+    runtime_min = int(meta.get("runtime") or 0)
+    min_unknown = int(CFG.get("yt_min_unknown_secs") or 90)
+    if duration_sec <= 0:
+        return False, "youtube video reported 0s duration"
+    if runtime_min > 0:
+        ok = runtime_ok(duration_sec, runtime_min)
+        if ok is False:
+            return False, f"duration {duration_sec}s outside TMDB runtime {runtime_min} min"
+        return True, ""
+    if duration_sec < min_unknown:
+        return False, f"duration {duration_sec}s below yt_min_unknown_secs ({min_unknown}s)"
+    return True, ""
+
+
+def _quality_label_for_height(height: int) -> str:
+    if height >= 2000:
+        return "2160p"
+    if height >= 960:
+        return "1080p"
+    if height >= 640:
+        return "720p"
+    return "480p"
+
+
+def _estimate_stream_bytes(fmt: dict, duration_sec: int) -> int:
+    sz = int(fmt.get("filesize") or fmt.get("filesize_approx") or 0)
+    if sz > 0:
+        return sz
+    try:
+        tbr = float(fmt.get("tbr") or fmt.get("vbr") or fmt.get("abr") or 0.0)
+    except (TypeError, ValueError):
+        tbr = 0.0
+    if tbr > 0 and duration_sec > 0:
+        return int((tbr * 1000.0 / 8.0) * duration_sec)
+    return 0
+
+
+def select_yt_streams(info: dict, meta: dict) -> tuple[dict | None, list[dict], str]:
+    """
+    Pick the best <=max_quality video stream (preferring m3u8 so YouTube never 403s
+    mid-download, with direct https kept as fallback) and enumerate the original audio
+    track plus EVERY unique auto-dubbed / multi-language / descriptive stream.
+    """
+    formats = info.get("formats") or []
+    max_h = QUALITY_MAX_HEIGHT.get(CFG.get("max_quality", "1080p"), 1080)
+    try:
+        duration_sec = int(float(info.get("duration") or 0))
+    except (TypeError, ValueError):
+        duration_sec = 0
+
+    video_cands = []
+    for f in formats:
+        vc = str(f.get("vcodec") or "none").lower()
+        ac = str(f.get("acodec") or "none").lower()
+        if vc == "none":
+            continue
+        try:
+            h = int(f.get("height") or 0)
+        except (TypeError, ValueError):
+            h = 0
+        if h <= 0 or h > max_h:
+            continue
+        proto = str(f.get("protocol") or "").lower()
+        is_m3u8 = 1 if proto in ("m3u8", "m3u8_native") else 0
+        is_video_only = 1 if ac == "none" else 0
+        is_avc = 1 if vc.startswith("avc1") or vc == "h264" else 0
+        try:
+            tbr = float(f.get("tbr") or f.get("vbr") or 0.0)
+        except (TypeError, ValueError):
+            tbr = 0.0
+        # Prefer video-only DASH, highest <=max_quality resolution, m3u8 (403-safe), H.264 for fast mux
+        video_cands.append((is_video_only, h, is_m3u8, is_avc, tbr, f))
+
+    if not video_cands:
+        return None, [], f"no YouTube video stream at or below {CFG.get('max_quality', '1080p')}"
+
+    video_cands.sort(key=lambda item: (item[0], item[1], item[2], item[3], item[4]), reverse=True)
+    best_v = video_cands[0][5]
+    v_height = int(best_v.get("height") or 0)
+    best_v_fid = str(best_v.get("format_id") or "")
+    v_fallbacks = []
+    for item in video_cands[1:]:
+        cand_f = item[5]
+        cand_fid = str(cand_f.get("format_id") or "")
+        if int(cand_f.get(
+                "height") or 0) == v_height and cand_fid and cand_fid != best_v_fid and cand_fid not in v_fallbacks:
+            v_fallbacks.append(cand_fid)
+            if len(v_fallbacks) >= 3:
+                break
+
+    v_size = _estimate_stream_bytes(best_v, duration_sec)
+    video_pick = {
+        "format_id": best_v_fid,
+        "fallback_format_ids": v_fallbacks,
+        "ext": str(best_v.get("ext") or "mp4"),
+        "height": v_height,
+        "quality": _quality_label_for_height(v_height),
+        "vcodec": str(best_v.get("vcodec") or ""),
+        "protocol": str(best_v.get("protocol") or ""),
+        "size": v_size,
+        "label": f"{_quality_label_for_height(v_height)} video",
+    }
+
+    # Enumerate audio-only streams first; fall back to muxed streams if none exist
+    audio_formats = [
+        f for f in formats
+        if str(f.get("acodec") or "none").lower() != "none"
+           and str(f.get("vcodec") or "none").lower() == "none"
+    ]
+    if not audio_formats:
+        audio_formats = [
+            f for f in formats
+            if str(f.get("acodec") or "none").lower() != "none"
+        ]
+
+    if not audio_formats:
+        return None, [], "no YouTube audio stream found"
+
+    orig_lang_meta = (meta.get("original_language") or "").strip().lower()
+    allowed_orig = expected_lang_codes(orig_lang_meta)
+    video_default_lang = str(info.get("language") or "").strip().lower()
+
+    # Collect all candidates per (bcp_lang, is_original, is_desc), ranking high-quality
+    # m3u8 (234-x) first so multi-dub downloads never hit YouTube's n-challenge 403 block,
+    # while keeping direct https (140-x / 251-x) as automatic fallback formats.
+    buckets: dict[tuple[str, bool, bool], list[tuple[tuple, dict]]] = {}
+
+    for f in audio_formats:
+        fid = str(f.get("format_id") or "").strip()
+        if not fid:
+            continue
+        note = str(f.get("format_note") or "").strip()
+        note_low = note.lower()
+        raw_lang = str(f.get("language") or video_default_lang or "und").strip()
+        bcp_lang, iso3, label, is_desc = classify_lang_and_region(raw_lang, note)
+
+        try:
+            lang_pref = int(f.get("language_preference") or 0)
+        except (TypeError, ValueError):
+            lang_pref = 0
+
+        is_dub_note = "dub" in note_low or lang_pref < 0
+        is_orig_note = "original" in note_low or lang_pref > 0
+        base_bcp = bcp_lang.split("-", 1)[0]
+        matches_tmdb_orig = bool(allowed_orig and (base_bcp in allowed_orig or iso3 in allowed_orig))
+
+        is_original = bool((is_orig_note or (matches_tmdb_orig and not is_dub_note)) and not is_desc)
+
+        proto = str(f.get("protocol") or "").lower()
+        is_m3u8 = 1 if proto in ("m3u8", "m3u8_native") else 0
+        if "high" in note_low or fid == "234" or fid.startswith("234-"):
+            tier_rank = 2
+        elif "low" in note_low or fid == "233" or fid.startswith("233-"):
+            tier_rank = 0
+        else:
+            tier_rank = 1
+        is_non_drc = 0 if ("drc" in note_low or fid.endswith("-drc")) else 1
+        acodec = str(f.get("acodec") or "").lower()
+        ext = str(f.get("ext") or "m4a").lower()
+        is_aac = 1 if ("mp4a" in acodec or acodec == "aac" or ext in ("mp4", "m4a")) else 0
+        try:
+            abr = float(f.get("abr") or f.get("tbr") or 0.0)
+        except (TypeError, ValueError):
+            abr = 0.0
+        asize = _estimate_stream_bytes(f, duration_sec)
+
+        rank_tuple = (is_m3u8, tier_rank, is_non_drc, is_aac, abr, asize)
+        track_info = {
+            "format_id": fid,
+            "fallback_format_ids": [],
+            "ext": ext,
+            "lang": bcp_lang,
+            "iso3": iso3,
+            "label": label,
+            "original": is_original,
+            "protocol": proto,
+            "acodec": acodec,
+            "abr": abr,
+            "size": asize,
+            "format_note": note,
+        }
+        bkey = (bcp_lang, is_original, is_desc)
+        buckets.setdefault(bkey, []).append((rank_tuple, track_info))
+
+    selected: list[dict] = []
+    for entries in buckets.values():
+        entries.sort(key=lambda item: item[0], reverse=True)
+        primary = entries[0][1]
+        seen_fids = {primary["format_id"]}
+        fallbacks: list[str] = []
+        for _rt, backup in entries[1:]:
+            bfid = backup["format_id"]
+            if bfid not in seen_fids:
+                seen_fids.add(bfid)
+                fallbacks.append(bfid)
+                if len(fallbacks) >= 3:
+                    break
+        primary["fallback_format_ids"] = fallbacks
+        selected.append(primary)
+
+    # Ensure at least one track is marked original/default
+    if not any(t["original"] for t in selected):
+        if allowed_orig:
+            for t in selected:
+                if t["lang"].split("-", 1)[0] in allowed_orig or t["iso3"] in allowed_orig:
+                    t["original"] = True
+                    break
+        if not any(t["original"] for t in selected):
+            selected[0]["original"] = True
+
+    # Sort original first, then alphabetical by display label
+    selected.sort(key=lambda t: (0 if t["original"] else 1, t["label"].lower(), t["lang"]))
+
+    # Disambiguate any duplicate labels (e.g., an original English and dubbed English track)
+    label_counts: dict[str, int] = {}
+    for t in selected:
+        lk = t["label"].lower()
+        label_counts[lk] = label_counts.get(lk, 0) + 1
+    for i, t in enumerate(selected):
+        t["index"] = i
+        t["default"] = (i == 0)
+        if label_counts[t["label"].lower()] > 1:
+            suffix = "Original" if t["original"] else "Dub"
+            t["label"] = f"{t['label']} ({suffix})"
+
+    return video_pick, selected, ""
+
+
+def yt_probe_video(video_url: str, meta: dict, enforce_title: bool = True) -> tuple[dict | None, str]:
+    """Fetch full yt-dlp metadata for a single video URL and build a gated candidate."""
+    info = ytdlp_json(["-J", "--no-playlist", video_url], timeout=60)
+    yt_title = str(info.get("title") or "").strip()
+    if enforce_title:
+        ok_title, overlap = yt_title_acceptable(yt_title, meta)
+        if not ok_title:
+            return None, f"YouTube title rejected ({yt_title!r}, overlap={overlap:.2f})"
+    else:
+        _, overlap = yt_title_acceptable(yt_title, meta)
+
+    try:
+        duration_sec = int(float(info.get("duration") or 0))
+    except (TypeError, ValueError):
+        duration_sec = 0
+    ok_dur, dur_why = yt_duration_acceptable(duration_sec, meta)
+    if not ok_dur:
+        return None, dur_why
+
+    video_pick, audio_tracks, stream_why = select_yt_streams(info, meta)
+    if not video_pick or not audio_tracks:
+        return None, stream_why or "no usable YouTube streams"
+
+    est_size = int(video_pick["size"]) + sum(int(t["size"]) for t in audio_tracks)
+    vid_id = str(info.get("id") or "").strip()
+    webpage_url = str(info.get("webpage_url") or video_url).strip()
+
+    cand = {
+        "source": "youtube",
+        "video_id": vid_id,
+        "webpage_url": webpage_url,
+        "uploader": str(info.get("uploader") or info.get("channel") or "").strip(),
+        "title": yt_title or meta.get("title") or "",
+        "year": meta.get("year") or name_year(yt_title),
+        "duration_s": duration_sec,
+        "overlap": round(overlap, 3),
+        "quality": video_pick["quality"],
+        "height": video_pick["height"],
+        "video_format": video_pick,
+        "audio_tracks": audio_tracks,
+        "size": est_size,
+        "seeds": 999,
+        "peers": 0,
+        "hash": f"yt-{vid_id}" if vid_id else "",
+        "url": webpage_url,
+        "magnet": "",
+        "torrent_name": f"{yt_title or meta.get('title') or 'youtube'} [{video_pick['quality']}] [YT]",
+    }
+    return cand, ""
+
+
+def yt_candidates(meta: dict, yt_url: str = "") -> tuple[list[dict], str]:
+    """Search YouTube (or inspect an explicit yt_url) and return gated multi-audio candidates."""
+    if not YTDLP:
+        return [], "yt-dlp not found"
+
+    if yt_url:
+        try:
+            cand, why = yt_probe_video(yt_url, meta, enforce_title=False)
+            return ([cand], "") if cand else ([], why)
+        except Exception as e:
+            return [], f"yt-dlp error: {e}"
+
+    if not CFG.get("yt_search", True):
+        return [], "yt_search disabled"
+
+    title = (meta.get("title") or "").strip()
+    year = (meta.get("year") or "").strip()
+    limit = max(1, min(int(CFG.get("yt_search_limit") or 10), 20))
+    query = f"{title} {year} full movie".strip() if year else f"{title} full movie".strip()
+
+    try:
+        search_data = ytdlp_json(["--flat-playlist", "-J", f"ytsearch{limit}:{query}"], timeout=45)
+    except Exception as e:
+        return [], f"yt-dlp search error: {e}"
+
+    entries = search_data.get("entries") or []
+    if not entries:
+        return [], "no YouTube search results"
+
+    shortlisted = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        etitle = str(entry.get("title") or "").strip()
+        ok_t, overlap = yt_title_acceptable(etitle, meta)
+        if not ok_t:
+            continue
+        try:
+            edur = int(float(entry.get("duration") or 0))
+        except (TypeError, ValueError):
+            edur = 0
+        if edur > 0:
+            ok_d, _ = yt_duration_acceptable(edur, meta)
+            if not ok_d:
+                continue
+        eurl = str(entry.get("webpage_url") or entry.get("url") or "").strip()
+        if not eurl and entry.get("id"):
+            eurl = f"https://www.youtube.com/watch?v={entry['id']}"
+        if not eurl:
+            continue
+        shortlisted.append((overlap, edur > 0, eurl))
+
+    if not shortlisted:
+        return [], "no YouTube search result passed title and duration filters"
+
+    shortlisted.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    last_why = "no YouTube candidate passed stream inspection"
+    for _ov, _has_dur, eurl in shortlisted[:2]:
+        try:
+            cand, why = yt_probe_video(eurl, meta, enforce_title=True)
+            if cand:
+                return [cand], ""
+            last_why = why
+        except Exception as e:
+            last_why = f"yt-dlp probe error: {e}"
+    return [], last_why
+
+
+def resolve(tmdb_id: int, yt_url: str = "") -> tuple[dict, list[dict], str]:
     """Ground truth + gated candidates + rejection reason ("" when usable)."""
     meta = tmdb_meta(tmdb_id)
     if not meta["title"]:
         return meta, [], "tmdb returned no title"
+
+    # Explicit YouTube URL bypasses YTS
+    if yt_url:
+        yt_cands, yt_why = yt_candidates(meta, yt_url=yt_url)
+        return meta, yt_cands, yt_why
+
     cands = yts_candidates(meta)
-    if not cands:
-        return meta, [], "no yts torrent for this imdb id or title"
-    ranked, rank_err = rank(cands)
-    if not ranked:
-        return meta, [], rank_err
-    kept: list[dict] = []
-    reasons: list[str] = []
-    for c in ranked:
-        ok, why = size_sane(c["size"], c["quality"], meta["runtime"])
-        if ok:
-            kept.append(c)
+    yts_why = "no yts torrent for this imdb id or title"
+    if cands:
+        ranked, rank_err = rank(cands)
+        if not ranked:
+            yts_why = rank_err
         else:
-            reasons.append(f"{c['quality']} {why}")
-    if kept:
-        return meta, kept, ""
-    return meta, [], "every candidate failed the size sanity check: " + "; ".join(reasons[:3])
+            kept: list[dict] = []
+            reasons: list[str] = []
+            for c in ranked:
+                ok, why = size_sane(c["size"], c["quality"], meta["runtime"])
+                if ok:
+                    kept.append(c)
+                else:
+                    reasons.append(f"{c['quality']} {why}")
+            if kept:
+                return meta, kept, ""
+            yts_why = "every candidate failed the size sanity check: " + "; ".join(reasons[:3])
+
+    if CFG.get("yt_fallback", True) and YTDLP:
+        yt_cands, yt_why = yt_candidates(meta)
+        if yt_cands:
+            return meta, yt_cands, ""
+        return meta, [], f"{yts_why}; youtube fallback: {yt_why}"
+
+    return meta, [], yts_why
+
+
+# --------------------------------------------------------------------------- #
+# YouTube download + FFmpeg multi-audio muxing (Phase 2B)
+# --------------------------------------------------------------------------- #
+
+def build_yt_mux_cmd(
+        video_path: Path,
+        audio_items: list[tuple[Path, dict]],
+        out_path: Path,
+        vcodec: str = "",
+) -> list[str]:
+    """Build FFmpeg command muxing video + original + all auto-dubbed audio tracks into MP4."""
+    cmd = [FFMPEG, "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", str(video_path)]
+    for apath, _track in audio_items:
+        cmd.extend(["-i", str(apath)])
+
+    cmd.extend(["-map", "0:v:0"])
+    for idx in range(len(audio_items)):
+        cmd.extend(["-map", f"{idx + 1}:a:0"])
+
+    vc_low = (vcodec or "").lower()
+    if vc_low.startswith("avc1") or vc_low in ("h264", "avc", ""):
+        cmd.extend(["-c:v", "copy"])
+    else:
+        cmd.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"])
+
+    all_aac = all(
+        ("mp4a" in str(t.get("acodec") or "").lower() or str(t.get("acodec") or "").lower() == "aac")
+        for _p, t in audio_items
+    )
+    if all_aac:
+        cmd.extend(["-c:a", "copy"])
+    else:
+        cmd.extend(["-c:a", "aac", "-b:a", "160k"])
+
+    for idx, (_apath, track) in enumerate(audio_items):
+        iso3 = str(track.get("iso3") or "und")
+        label = re.sub(r"[\r\n\t]+", " ", str(track.get("label") or f"Track {idx + 1}")).strip()
+        cmd.extend([f"-metadata:s:a:{idx}", f"language={iso3}"])
+        cmd.extend([f"-metadata:s:a:{idx}", f"title={label}"])
+        cmd.extend([f"-disposition:a:{idx}", "default" if idx == 0 else "0"])
+
+    cmd.extend(["-movflags", "+faststart", str(out_path)])
+    return cmd
+
+
+def _yt_download_stream(url: str, format_id: str, out_template: Path) -> Path:
+    cmd = [
+        YTDLP,
+        *YTDLP_BASE_ARGS,
+        "--no-playlist",
+        "-f", format_id,
+        "-o", str(out_template),
+        url,
+    ]
+    res = subprocess.run(cmd, capture_output=True, timeout=3600)
+    if res.returncode != 0:
+        err = res.stderr.decode("utf-8", "replace").strip()[-300:]
+        raise RuntimeError(f"yt-dlp format {format_id} failed: {err}")
+    prefix = out_template.name.split(".%(ext)s")[0]
+    matches = sorted(
+        p for p in out_template.parent.iterdir()
+        if p.is_file() and p.name.startswith(prefix) and not p.name.endswith(".part")
+    )
+    if not matches:
+        raise RuntimeError(f"yt-dlp produced no file for format {format_id}")
+    return matches[0]
+
+
+def _yt_download_track_with_fallback(url: str, stream_spec: dict, out_template: Path) -> Path:
+    """Try primary format_id (m3u8) first, then automatically fall back to backup format IDs."""
+    candidates: list[str] = []
+    for fid in [stream_spec.get("format_id"), *(stream_spec.get("fallback_format_ids") or [])]:
+        s = str(fid or "").strip()
+        if s and s not in candidates:
+            candidates.append(s)
+
+    last_exc: Exception = RuntimeError("no format id available")
+    for idx, fid in enumerate(candidates):
+        try:
+            return _yt_download_stream(url, fid, out_template)
+        except Exception as exc:
+            last_exc = exc
+            if idx + 1 < len(candidates):
+                lbl = stream_spec.get("label") or stream_spec.get("lang") or fid
+                log(f"yt-dlp format {fid} failed for {lbl}, trying fallback {candidates[idx + 1]}")
+    raise last_exc
+
+
+def run_yt_job(job: dict, cand: dict) -> None:
+    """Download video + all audio tracks via yt-dlp (with format fallback & non-fatal dub skip), mux, verify, and file."""
+    staging_dir = job_dir(job)
+    try:
+        if not YTDLP or not FFMPEG:
+            raise RuntimeError("yt-dlp or ffmpeg not found")
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        url = cand["webpage_url"]
+        vpick = cand["video_format"]
+        atracks = cand["audio_tracks"]
+        total_steps = 1 + len(atracks) + 1
+
+        if job.get("state") == "cancelled":
+            return
+
+        log(f"yt-dlp start {job['title']} [{cand['quality']}] ({len(atracks)} audio track(s))")
+        video_file = _yt_download_track_with_fallback(url, vpick, staging_dir / "video.%(ext)s")
+        job["progress"] = round(1.0 / total_steps, 3)
+        save_jobs()
+
+        audio_items: list[tuple[Path, dict]] = []
+        for idx, track in enumerate(atracks):
+            if job.get("state") == "cancelled":
+                return
+            out_tpl = staging_dir / f"audio_{idx:02d}_{safe_name(track['lang'])}.%(ext)s"
+            try:
+                afile = _yt_download_track_with_fallback(url, track, out_tpl)
+                audio_items.append((afile, track))
+            except Exception as exc:
+                if track.get("original"):
+                    raise
+                log(f"warning: skipping dub {track['label']} ({track['lang']}): {exc}")
+            job["progress"] = round((2 + idx) / total_steps, 3)
+            save_jobs()
+
+        if not audio_items:
+            raise RuntimeError("no YouTube audio tracks downloaded")
+
+        if job.get("state") == "cancelled":
+            return
+
+        # Keep job["audio_tracks"] aligned with the exact tracks muxed into the output file
+        job["audio_tracks"] = [
+            {
+                "index": i,
+                "lang": t["lang"],
+                "iso3": t["iso3"],
+                "label": t["label"],
+                "original": t["original"],
+            }
+            for i, (_p, t) in enumerate(audio_items)
+        ]
+
+        job["state"] = "muxing"
+        save_jobs()
+        muxed_path = staging_dir / "muxed.mp4"
+        mux_cmd = build_yt_mux_cmd(video_file, audio_items, muxed_path, vcodec=vpick.get("vcodec", ""))
+        res = subprocess.run(mux_cmd, capture_output=True, timeout=1800)
+        if res.returncode != 0 or not muxed_path.is_file():
+            err = res.stderr.decode("utf-8", "replace").strip()[-300:]
+            raise RuntimeError(f"ffmpeg mux failed: {err}")
+
+        # Post-mux verification
+        info = ffprobe_media(muxed_path)
+        if not info["ok"]:
+            raise RuntimeError(f"ffprobe verification failed: {info.get('error')}")
+        ok_dur, dur_why = yt_duration_acceptable(info["seconds"], job)
+        if not ok_dur:
+            raise RuntimeError(f"post-mux verification failed: {dur_why}")
+        if audio_language_ok(info.get("audio_langs") or [], job, [cand.get("title", "")]) is False:
+            raise RuntimeError("post-mux original audio language missing")
+
+        job["state"] = "moving"
+        if finalize(job, muxed_path):
+            log(f"yt-dlp filed {job['title']} with {len(audio_items)} audio track(s)")
+    except Exception as exc:
+        if job.get("state") != "cancelled":
+            job["state"] = "failed"
+            job["permanent"] = True
+            job["error"] = str(exc)
+            save_jobs()
+            log(f"yt-dlp failed {job.get('title') or job['tmdb']}: {exc}")
+    finally:
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir, ignore_errors=True)
+            log(f"removed staging folder {staging_dir.name}")
 
 
 # --------------------------------------------------------------------------- #
@@ -852,6 +1682,7 @@ def new_job(tmdb_id: int) -> dict:
         "tmdb": tmdb_id,
         "tmdb_id": tmdb_id,
         "imdb_id": "",
+        "source": "yts",
         "title": "",
         "original_title": "",
         "original_language": "",
@@ -860,6 +1691,8 @@ def new_job(tmdb_id: int) -> dict:
         "runtime": 0,
         "poster_path": "",
         "yts_title": "",
+        "yt_url": "",
+        "audio_tracks": [],
         "quality": "",
         "size": 0,
         "hash": "",
@@ -1076,7 +1909,7 @@ def evaluate(video: Path, folder: str, size: int):
     undecidable), "reject" (wrong film or dub-only audio replacement).
     """
     with JOBS_LOCK:
-        pending = [j for j in JOBS.values() if j["state"] == "handed_off"]
+        pending = [j for j in JOBS.values() if j["state"] == "handed_off" and j.get("source", "yts") == "yts"]
     if not pending:
         return None
 
@@ -1098,7 +1931,7 @@ def evaluate(video: Path, folder: str, size: int):
     info = ffprobe_media(video)
     names = [folder, video.stem, info.get("title", "")]
 
-    best = None            # (score, job, verdict, info, ident)
+    best = None  # (score, job, verdict, info, ident)
     for job in eligible:
         ident = identity_match(names, job)
         r_ok = runtime_ok(info["seconds"], int(job.get("runtime") or 0))
@@ -1275,7 +2108,7 @@ def handle_file(p: Path, folder: str, min_size: int) -> None:
 def aria_tick() -> None:
     changed = False
     with JOBS_LOCK:
-        active = [j for j in JOBS.values() if j["state"] == "downloading"]
+        active = [j for j in JOBS.values() if j["state"] == "downloading" and j.get("source", "yts") == "yts"]
     for job in active:
         st = ARIA.status(job["gid"])
         if not st:
@@ -1321,6 +2154,12 @@ def watch_roots() -> list[str]:
 def scan_roots(min_size: int) -> None:
     lib = Path(CFG["library_root"]).resolve()
     max_depth = int(CFG.get("watch_depth") or 3)
+    with JOBS_LOCK:
+        yt_dirs = {
+            (Path(CFG["staging_root"]) / j["dir"]).resolve()
+            for j in JOBS.values()
+            if j.get("source") == "youtube" and j.get("dir") and j.get("state") in ACTIVE_STATES
+        }
     for root in watch_roots():
         base = Path(root)
         if not base.is_dir():
@@ -1333,10 +2172,11 @@ def scan_roots(min_size: int) -> None:
             here = Path(dirpath)
             dirs[:] = [d for d in dirs if d not in IGNORED_DIRS]
             try:
-                if here.resolve() == lib:
+                resolved_here = here.resolve()
+                if resolved_here == lib or resolved_here in yt_dirs:
                     dirs[:] = []
                     continue
-                depth = len(here.resolve().parts) - base_parts
+                depth = len(resolved_here.parts) - base_parts
             except OSError:
                 depth = 0
             if depth >= max_depth:
@@ -1373,7 +2213,7 @@ td{padding:9px 8px;border-bottom:1px solid #1b1b20;vertical-align:top}
 .mono{font:11px ui-monospace;color:#8a7d55;word-break:break-all}
 .bar{height:5px;background:#1b1b20;border-radius:3px;overflow:hidden;margin-top:6px}
 .bar>i{display:block;height:100%;background:#c8a24a}
-.done{color:#6cc07a}.fail{color:#d66}.moving,.handed_off{color:#c8a24a}
+.done{color:#6cc07a}.fail{color:#d66}.moving,.handed_off,.muxing{color:#c8a24a}
 .review{color:#c8a24a;font-weight:600}
 .poster{width:46px;border-radius:3px;display:block}
 button{background:#1b1b20;color:#bbb;border:1px solid #2b2b32;border-radius:4px;padding:4px 9px;cursor:pointer;font-size:12px;margin-bottom:4px}
@@ -1386,20 +2226,59 @@ async function tick(){
   const r = await fetch('/queue'); const rows = await r.json();
   document.getElementById('rows').innerHTML = rows.map(j=>{
     const cls = j.state==='done'?'done':j.state==='failed'?'fail':j.state==='needs_review'?'review':'';
+    const aud = (j.audio_tracks && j.audio_tracks.length) ? ' · '+j.audio_tracks.length+' audio' : '';
     return `<tr><td>${j.poster_url?`<img class=poster src="${j.poster_url}">`:''}</td><td>
     <div class="t">${j.title||'…'} ${j.year?('('+j.year+')'):''}</div>
-    <div class="s">tmdb ${j.tmdb} · ${j.quality} · ${j.size_h} · ${j.runtime_h}</div>
+    <div class="s">tmdb ${j.tmdb} · ${j.source||'yts'} · ${j.quality} · ${j.size_h}${aud} · ${j.runtime_h}</div>
     <div class="s ${cls}">${j.state}${j.speed_h?(' · '+j.speed_h):''}${j.error?(' · '+j.error):''}</div>
-    ${j.state==='downloading'?`<div class="bar"><i style="width:${j.progress_pct}%"></i></div>`:''}
+    ${(j.state==='downloading'||j.state==='muxing')?`<div class="bar"><i style="width:${j.progress_pct}%"></i></div>`:''}
     ${j.state==='needs_review'?`<div class="mono">${j.candidate_path} · ${j.candidate_seconds}s · ${j.candidate_width}x${j.candidate_height}</div>
       <div><button class=ok onclick="act('/queue/approve','${j.id}')">approve</button>
       <button onclick="act('/queue/reject','${j.id}')">reject</button></div>`:''}
     ${j.magnet?`<div class="mono" title="${j.magnet}">${j.magnet.slice(0,90)}…</div>`:''}
+    ${j.yt_url?`<div class="mono">${j.yt_url}</div>`:''}
     </td><td style="width:1%"><button onclick="act('/cancel','${j.id}')">x</button></td></tr>`;
   }).join('') || '<tr><td class="s">idle</td></tr>';
 }
 setInterval(tick, 2500); tick();
 </script>"""
+
+
+def _public_dry_candidate(c: dict) -> dict:
+    if c.get("source") == "youtube":
+        return {
+            "source": "youtube",
+            "video_id": c.get("video_id", ""),
+            "webpage_url": c.get("webpage_url", ""),
+            "uploader": c.get("uploader", ""),
+            "title": c.get("title", ""),
+            "year": c.get("year", ""),
+            "quality": c.get("quality", ""),
+            "height": c.get("height", 0),
+            "duration_s": c.get("duration_s", 0),
+            "overlap": c.get("overlap", 0),
+            "size": c.get("size", 0),
+            "size_h": human(c["size"]) if c.get("size") else "unknown",
+            "audio_tracks": [
+                {
+                    "index": t["index"],
+                    "lang": t["lang"],
+                    "iso3": t["iso3"],
+                    "label": t["label"],
+                    "original": t["original"],
+                    "format_id": t["format_id"],
+                    "fallback_format_ids": t.get("fallback_format_ids", []),
+                    "protocol": t.get("protocol", ""),
+                    "acodec": t["acodec"],
+                    "abr": t["abr"],
+                }
+                for t in (c.get("audio_tracks") or [])
+            ],
+        }
+    return (
+            {k: c[k] for k in ("quality", "size", "seeds", "peers", "title", "year")}
+            | {"source": "yts", "size_h": human(c["size"]), "uncut": bool(uncut_bonus(c))}
+    )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1438,9 +2317,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, PAGE.replace("__MODE__", CFG["client"]).encode(),
                               "text/html; charset=utf-8")
         if u.path == "/health":
-            return self._json({"ok": True, "version": VERSION, "mode": CFG["client"],
-                               "max_quality": CFG["max_quality"], "min_seeds": CFG["min_seeds"],
-                               "ffprobe": bool(FFPROBE), "tmdb_key": bool(CFG.get("tmdb_key"))})
+            return self._json({
+                "ok": True,
+                "version": VERSION,
+                "mode": CFG["client"],
+                "max_quality": CFG["max_quality"],
+                "min_seeds": CFG["min_seeds"],
+                "ffprobe": bool(FFPROBE),
+                "ffmpeg": bool(FFMPEG),
+                "ytdlp": bool(YTDLP),
+                "yt_fallback": bool(CFG.get("yt_fallback", True)),
+                "tmdb_key": bool(CFG.get("tmdb_key")),
+            })
         if u.path == "/queue":
             return self._json(snapshot())
         if u.path == "/dry":
@@ -1448,24 +2336,23 @@ class Handler(BaseHTTPRequestHandler):
                 tmdb = int((q.get("tmdb") or [""])[0])
             except ValueError:
                 return self._json({"error": "tmdb required"}, 400)
+            yt_url = ((q.get("yt") or [""])[0]).strip()
             try:
-                meta, cands, why = resolve(tmdb)
+                meta, cands, why = resolve(tmdb, yt_url=yt_url)
             except Exception as e:
                 return self._json({"error": str(e)}, 502)
             avail = max(0, free_bytes(Path(CFG["staging_root"])) - reserved_bytes())
+            src = cands[0].get("source", "yts") if cands else ("youtube" if yt_url else "none")
             return self._json({
                 "tmdb": tmdb,
                 "imdb": meta["imdb"],
                 "title": meta["title"],
                 "original_language": meta["original_language"],
                 "runtime": meta["runtime"],
+                "source": src,
                 "rejected": why,
                 "free": human(avail),
-                "candidates": [
-                    {k: c[k] for k in ("quality", "size", "seeds", "peers", "title", "year")}
-                    | {"size_h": human(c["size"]), "uncut": bool(uncut_bonus(c))}
-                    for c in cands
-                ],
+                "candidates": [_public_dry_candidate(c) for c in cands],
             })
         return self._json({"error": "not found"}, 404)
 
@@ -1539,6 +2426,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._json({"error": "tmdb required"}, 400)
         force = (q.get("force") or [""])[0] in ("1", "true", "yes")
+        yt_url = ((q.get("yt") or [""])[0]).strip()
 
         if not force:
             existing_job = find_active_job(tmdb)
@@ -1560,7 +2448,7 @@ class Handler(BaseHTTPRequestHandler):
         save_jobs()
 
         try:
-            meta, cands, why = resolve(tmdb)
+            meta, cands, why = resolve(tmdb, yt_url=yt_url)
         except Exception as e:
             job["state"] = "failed"
             job["permanent"] = True
@@ -1596,15 +2484,42 @@ class Handler(BaseHTTPRequestHandler):
             save_jobs()
             return self._json(public(job), 507)
 
+        staging = Path(CFG["staging_root"])
+        staging.mkdir(parents=True, exist_ok=True)
+
+        # YouTube multi-audio acquisition branch (Phase 2B)
+        if pick.get("source") == "youtube":
+            job.update(
+                source="youtube",
+                yt_url=pick["webpage_url"],
+                quality=pick["quality"],
+                size=pick["size"],
+                hash=pick["hash"],
+                dir=safe_name(f"yt_{tmdb}_{job['id']}"),
+                audio_tracks=[
+                    {
+                        "index": t["index"],
+                        "lang": t["lang"],
+                        "iso3": t["iso3"],
+                        "label": t["label"],
+                        "original": t["original"],
+                    }
+                    for t in pick["audio_tracks"]
+                ],
+                state="downloading",
+            )
+            save_jobs()
+            threading.Thread(target=run_yt_job, args=(job, pick), daemon=True).start()
+            return self._json(public(job), 202)
+
         base = safe_name(re.sub(r"\s*\((19|20)\d{2}\)\s*$", "", pick["title"] or "").strip()
                          or pick["title"] or "untitled")
         stem = f"{base} ({pick['year']})" if pick["year"] else base
         job["dir"] = safe_name(pick["torrent_name"] or stem)
-        job["magnet_file"] = str(Path(CFG["staging_root"]) / (stem + ".magnet.txt"))
-        staging = Path(CFG["staging_root"])
-        staging.mkdir(parents=True, exist_ok=True)
+        job["magnet_file"] = str(staging / (stem + ".magnet.txt"))
 
         job.update(
+            source="yts",
             yts_title=pick["title"],
             quality=pick["quality"],
             size=pick["size"],
@@ -1713,11 +2628,19 @@ def load_config(path: str) -> dict:
         cfg["verify_size_tolerance_pct"] = max(1, int(cfg.get("verify_size_tolerance_pct") or 5))
     except (TypeError, ValueError):
         cfg["verify_size_tolerance_pct"] = 5
+    try:
+        cfg["yt_search_limit"] = max(1, min(int(cfg.get("yt_search_limit") or 10), 20))
+    except (TypeError, ValueError):
+        cfg["yt_search_limit"] = 10
+    try:
+        cfg["yt_min_unknown_secs"] = max(1, int(cfg.get("yt_min_unknown_secs") or 90))
+    except (TypeError, ValueError):
+        cfg["yt_min_unknown_secs"] = 90
     return cfg
 
 
 def main() -> None:
-    global CFG, ARIA, FFPROBE
+    global CFG, ARIA, FFMPEG, FFPROBE, YTDLP
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="grab.json")
     ap.add_argument("--client", choices=["aria2", "fdm", "drop"])
@@ -1725,7 +2648,9 @@ def main() -> None:
     CFG = load_config(args.config)
     if args.client:
         CFG["client"] = args.client
+    FFMPEG = find_ffmpeg()
     FFPROBE = find_ffprobe()
+    YTDLP = find_ytdlp()
     load_jobs()
 
     if CFG["client"] == "aria2":
@@ -1749,6 +2674,7 @@ def main() -> None:
         log("warning: ffprobe not found — every download will park for review")
     else:
         log(f"ffprobe {FFPROBE}")
+    log(f"yt-dlp {YTDLP or 'not found'} (yt_fallback={CFG.get('yt_fallback', True)})")
     log(f"runtime tolerance -{CFG['verify_runtime_tolerance_min']}/+{CFG['verify_runtime_long_tolerance_min']} min, "
         f"size tolerance ±{CFG['verify_size_tolerance_pct']}%, "
         f"verify_audio_language={CFG['verify_audio_language']}, "

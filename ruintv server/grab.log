@@ -69,3 +69,139 @@
 02:55:55 staging D:\movies\staging
 02:55:55 watch depth 3
 02:55:55 watching D:\movies\staging
+03:38:48 grab 1.5.0 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+03:38:48 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+03:38:48 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+03:38:48 library D:\movies\library
+03:38:48 staging D:\movies\staging
+03:38:48 watch depth 3
+03:38:48 watching D:\movies\staging
+03:47:07 grab 1.5.0 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+03:47:07 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+03:47:07 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+03:47:07 library D:\movies\library
+03:47:07 staging D:\movies\staging
+03:47:07 watch depth 3
+03:47:07 watching D:\movies\staging
+04:03:26 grab 1.6.0 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+04:03:26 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+04:03:26 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+04:03:26 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+04:03:26 library D:\movies\library
+04:03:26 staging D:\movies\staging
+04:03:26 watch depth 3
+04:03:26 watching D:\movies\staging
+04:04:12 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+04:05:00 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+04:05:12 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+04:09:11 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+04:09:57 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+04:36:25 grab 1.6.1 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+04:36:25 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+04:36:25 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+04:36:25 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+04:36:25 library D:\movies\library
+04:36:25 staging D:\movies\staging
+04:36:25 watch depth 3
+04:36:25 watching D:\movies\staging
+04:37:42 yt-dlp start Remain Calm [1080p] (24 audio track(s))
+04:43:57 yt-dlp failed Remain Calm: yt-dlp format 140-12 failed: ERROR: unable to download video data: HTTP Error 403: Forbidden
+04:43:57 removed staging folder yt_1796809_9d44d3147709
+04:58:38 restored 1 job(s) from jobs.json
+04:58:38 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+04:58:38 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+04:58:38 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+04:58:38 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+04:58:38 library D:\movies\library
+04:58:38 staging D:\movies\staging
+04:58:38 watch depth 3
+04:58:38 watching D:\movies\staging
+04:59:37 yt-dlp start Remain Calm [1080p] (24 audio track(s))
+05:18:38 filed Remain Calm (2026) [tmdb-1796809].mp4 (1.1 GB)
+05:18:40 yt-dlp filed Remain Calm with 24 audio track(s)
+05:18:40 removed staging folder yt_1796809_9f47005df8e9
+08:50:53 restored 2 job(s) from jobs.json
+08:50:53 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+08:50:53 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+08:50:53 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+08:50:53 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+08:50:53 library D:\movies\library
+08:50:53 staging D:\movies\staging
+08:50:53 watch depth 3
+08:50:53 watching D:\movies\staging
+09:29:32 restored 2 job(s) from jobs.json
+09:29:32 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+09:29:32 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+09:29:32 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+09:29:32 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+09:29:32 library D:\movies\library
+09:29:32 staging D:\movies\staging
+09:29:32 watch depth 3
+09:29:32 watching D:\movies\staging
+09:30:53 restored 2 job(s) from jobs.json
+09:30:53 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+09:30:53 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+09:30:53 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+09:30:53 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+09:30:53 library D:\movies\library
+09:30:53 staging D:\movies\staging
+09:30:53 watch depth 3
+09:30:53 watching D:\movies\staging
+09:31:34 restored 2 job(s) from jobs.json
+09:31:34 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+09:31:34 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+09:31:34 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+09:31:34 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+09:31:34 library D:\movies\library
+09:31:34 staging D:\movies\staging
+09:31:34 watch depth 3
+09:31:34 watching D:\movies\staging
+09:35:47 restored 2 job(s) from jobs.json
+09:35:47 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+09:35:47 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+09:35:47 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+09:35:47 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+09:35:47 library D:\movies\library
+09:35:47 staging D:\movies\staging
+09:35:47 watch depth 3
+09:35:47 watching D:\movies\staging
+09:39:17 restored 2 job(s) from jobs.json
+09:39:17 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+09:39:17 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+09:39:17 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+09:39:17 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+09:39:17 library D:\movies\library
+09:39:17 staging D:\movies\staging
+09:39:17 watch depth 3
+09:39:17 watching D:\movies\staging
+09:59:19 restored 2 job(s) from jobs.json
+09:59:20 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+09:59:20 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+09:59:20 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+09:59:20 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+09:59:20 library D:\movies\library
+09:59:20 staging D:\movies\staging
+09:59:20 watch depth 3
+09:59:20 watching D:\movies\staging
+09:59:29 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+09:59:35 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+09:59:46 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+10:01:06 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+10:01:31 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+10:04:04 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+10:04:29 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+10:04:59 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+10:05:03 yts yts.mx: <urlopen error [Errno 11001] getaddrinfo failed>
+10:05:23 yt-dlp start Remain Calm [1080p] (1 audio track(s))
+10:06:52 filed Remain Calm (2026) [tmdb-1796809].mp4 (113.6 MB)
+10:06:53 yt-dlp filed Remain Calm with 1 audio track(s)
+10:06:54 removed staging folder yt_1796809_3110ff9e00b5
+19:39:44 restored 3 job(s) from jobs.json
+19:39:44 grab 1.6.2 on http://0.0.0.0:8789 mode=fdm max_quality=1080p
+19:39:44 ffprobe D:\my development work\development tools\ffmpeg\bin\ffprobe.exe
+19:39:44 yt-dlp D:\my development work\development tools\yt-dlp\yt-dlp.exe (yt_fallback=True)
+19:39:44 runtime tolerance -10/+20 min, size tolerance ±5%, verify_audio_language=True, auto_delete_rejected=True
+19:39:44 library D:\movies\library
+19:39:44 staging D:\movies\staging
+19:39:44 watch depth 3
+19:39:44 watching D:\movies\staging
